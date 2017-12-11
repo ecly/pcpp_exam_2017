@@ -72,4 +72,52 @@ beat out its quickcount counterparts, however the difference is so small that we
 
 \subsection{}
 
+
+\section{Question 2}
+\subsection{}
+\begin{lstlisting}
+      (int) Arrays.stream(inp).skip(1).filter(i -> i < p).count();
+\end{lstlisting}
+Where \texttt{inp} is our input array, and \texttt{p} is our current partition candidate.
+Skip the first element as this is the index of the partition element with which we do not wish to compare.
+
+\subsection{}
+\begin{lstlisting}
+          Arrays.stream(inp).skip(1).filter(i -> i < p).toArray();
+          Arrays.stream(inp).skip(1).filter(i -> i >= p).toArray();
+\end{lstlisting}
+
+\subsection{}
+\begin{lstlisting}
+public static int quickCountStream(int[] inp) {
+    int partition=-1, count=0, n=inp.length;
+    int target = n/2;
+    do {
+        partition=inp[0];
+        final int p = partition;
+        n=inp.length;
+        count = (int) Arrays.stream(inp).skip(1).filter(i -> i < p).count();
+        if (count == target) break;
+        if (count > target){
+            inp = Arrays.stream(inp).skip(1).parallel.()filter(i -> i < p).toArray();
+        }else{
+            inp = Arrays.stream(inp).skip(1).parallel().filter(i -> i >= p).toArray();
+            target=target-count-1;
+        }
+    } while( true );
+    return partition; // we are on target
+}
+\end{lstlisting}
+
+Combining the two we get above implementation, which yields correct results.
+
+\subsection{}
+\begin{lstlisting}
+    Arrays.stream(inp).parallel().skip(1).filter(i -> i < p).count();
+    Arrays.stream(inp).parallel().skip(1).filter(i -> i < p).toArray();
+    Arrays.stream(inp).parallel().skip(1).filter(i -> i >= p).toArray();
+\end{lstlisting}
+Here we simply throw \texttt{.parallel()} onto the pipelines from before.
+
+\subsection{}
 \end{document}
