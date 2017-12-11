@@ -15,11 +15,10 @@ import java.util.function.IntToDoubleFunction;
 import java.util.function.Function;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
+import java.util.function.BiFunction;
 
 
 class TestQuickSelect {
-    public static final int threadCount = 4;
-
     public static int medianSort(int[] inp) {
         int w[] = Arrays.copyOf(inp, inp.length);
         Arrays.sort(w);
@@ -115,16 +114,36 @@ class TestQuickSelect {
         return p; // we are on target
     }
 
+    // Takes an arr, a partition, the size of the outpuit array and a BiFunction,
+    // returning an array of the given size containing elements of arr for which 
+    // f.apply(arr[i], partition) returns true.
+    public static int[] filter(int[] arr, int partition, int size,  BiFunction<Integer,Integer,Boolean> f){
+        int[] m = new int[size];
+        ArrayList<Callable<Void>> filterers = new ArrayList<>();
+        final AtomicInteger j = new AtomicInteger(0);
+        final int step = arr.length/threadCount;
+        for(int i=0;i<threadCount;i++) {
+            final int from = i==0 ? 1 : i*step;
+            final int to = i==threadCount-1 ? arr.length : i*step+step;
+            filterers.add(() -> {
+                for(int h= from; h<to; h++)
+                    if(f.apply(arr[h],partition)) m[j.getAndIncrement()]=arr[h];
+                return null;
+            });
+        }
+        try{ executor.invokeAll(filterers);
+        } catch (InterruptedException e) { System.err.println("Threads interrupted");}
+        return m;
+    }
+
+    static ExecutorService executor = Executors.newWorkStealingPool();
     public static int quickCountItTask(int[] in) {
-        ExecutorService executor = Executors.newWorkStealingPool();
         int target = in.length/2;
         do {
             final AtomicInteger count = new AtomicInteger(0);
             final int[] inp = in;
-            final int n = inp.length;
-            final int p = inp[0];
+            final int n = inp.length, p = inp[0];
             final int step = n/threadCount;
-            // System.out.println(Arrays.toString(inp));
 
             //Counting
             ArrayList<Callable<Void>> counters = new ArrayList<>();
@@ -144,38 +163,13 @@ class TestQuickSelect {
             if (count.get() == target) return p; //Terminated
 
             //Filtering
-            ArrayList<Callable<Void>> filterers = new ArrayList<>();
-            final AtomicInteger j = new AtomicInteger(0);
-            if(count.get() > target) {
-                int[]m = new int[count.get()];
-                   for(int i=0;i<threadCount;i++) {
-                    final int from = i==0 ? 1 : i*step;
-                    final int to = i==threadCount-1 ? inp.length : i*step+step;
-                    filterers.add(() -> {
-                        for(int h= from; h<to; h++)
-                            if(inp[h]<p) m[j.getAndIncrement()]=inp[h];
-                        return null;
-                    });
-                }
-                try{ executor.invokeAll(filterers);
-                } catch (InterruptedException e) { System.err.println("Threads interrupted");}
-                in = m;
-            }
-            if(count.get() < target) {
-                int m[] = new int[n-count.get()-1];
-                   for(int i=0;i<threadCount;i++) {
-                    final int from = i==0 ? 1 : i*step;
-                    final int to = i==threadCount-1 ? inp.length : i*step+step;
-                    filterers.add(() -> {
-                        for(int h= from; h<to; h++)
-                            if(inp[h]>=p) m[j.getAndIncrement()]=inp[h];
-                        return null;
-                    });
-                }
-                try{ executor.invokeAll(filterers);
-                } catch (InterruptedException e) { System.err.println("Threads interrupted");}
+            boolean tooLargeP = count.get() > target;
+            int size = tooLargeP ? count.get() : n-count.get()-1;
+            if(tooLargeP) {
+                in = filter(inp, p, size, (x,y) -> x < y);
+            } else {
+                in = filter(inp, p, size, (x,y) -> x >= y);
                 target=target-count.get()-1;
-                in = m;
             }
         } while( true );
     }
@@ -200,20 +194,21 @@ class TestQuickSelect {
                 target=target-smaller.size()-1;
                 list = bigger;
             }
-       } while( true );
+        } while( true );
         return partition; // we are on target
     }
 
+    public static final int threadCount = 4;
     public static void main( String [] args ) {
         SystemInfo();
-        int a[] = new int[Integer.parseInt(args[0])]; //100_000_000];
+        int a[] = new int[Integer.parseInt(args[0])];
         Random rnd = new Random();
         if( args.length == 1 ) {
             int nrIt = 10;
             for(int ll=0;ll<nrIt;ll++) {
                 rnd.setSeed(23434+ll); // seed
                 for(int i=0;i<a.length;i++) a[i] = rnd.nextInt(4*a.length);
-                final int ra = quickCountRec(a,a.length/2); //
+                final int ra = quickCountRec(a,a.length/2);
                 final int rb = medianPSort(a);
                 if( ra !=rb ) { 
                     System.out.println(ll);
@@ -231,19 +226,15 @@ class TestQuickSelect {
         }
         //    System.exit(0);
         int[] testArray = new int[]{9,2,4,3,5,7,1,8,9,6};
-        System.out.println("MedianST: " + quickCountStream(testArray));
-        System.out.println("MedianIT: " + quickCountIt(testArray));
-        System.out.println("MedianITTask: " + quickCountItTask(testArray));
         double d=0.0;
         // d += Mark9("serial sort", a.length, x -> medianSort(a));
         // d += Mark9("parall sort", a.length, x -> medianPSort(a));
         // d += Mark9("serial qsel", a.length, x -> quickSelect(a));
         // d += Mark9("ser countRc", a.length,x -> quickCountRec(a,a.length/2));
-  
+
         d += Mark9("ser countIt", a.length,x -> quickCountIt(a));
         d += Mark9("par countIt", a.length,x -> quickCountItTask(a));
-        d += Mark9("countStream", a.length,x -> quickCountStream(a));
-
+        // d += Mark9("countStream", a.length,x -> quickCountStream(a));
         // d += Mark9("task countR", a.length,x -> quickCountRecTask(a,a.length/2));
         System.out.println(d);
     }

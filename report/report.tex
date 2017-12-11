@@ -78,9 +78,92 @@ We do however see parallel sort get rather close to the expected linear running 
 allowing an approximate 4 time speedup from the serial implementation. Between the expected linear running time algorithms, it seems serial quickselect 
 beat out its quickcount counterparts, however the difference is so small that we have yet to find a definitive winner.
 
-\subsection{TODO}
-\subsection{TODO}
-\subsection{TODO}
+\subsection{}
+Below is shown a parallel quickCount implementation using tasks, where \texttt{quickCountItTask} is the main function, and \texttt{filter} is the auxiliary method
+in which the parallel filtering is done. The filter method mainly serves to reduce code duplication as the original implementation is near identical
+for the filtering cases where we either have a too larger or a too small selected partition number.
+
+To allow multiple tasks to safely increment \texttt{count}, we use a \texttt{final AtomicInteger} on line 28. In general for each iteration, all variables that we need to access
+from within the threads are made final, as we get compile errors otherwise. For task partitioning, we try to split up the input array in even intervals skipping the partition element. For undivisible numbers,
+we give the leftovers to the last created task. This can slow us down a little bit, since one task may end up doing more work than the others. In \texttt{filter} we take the same
+approach to partitioning, and now use an \texttt{AtomicInteger} on line 8, to safely keep track of what index in the new array \texttt{m} we want to insert the next value in. This ensures that
+we never try to write to the same index of \texttt{m} twice.
+
+Other than these parallization measures, the overall structure of \texttt{quickCountItTask} is similar to that of the given \texttt{quickCountTask}.
+
+\begin{lstlisting}
+// Takes an arr, a partition, the size of the output array and a BiFunction,
+// returning an array of the given size containing elements from arr for which 
+// f.apply(arr[i], partition) returns true.
+public static int[] filter(int[] arr, int partition, int size,  BiFunction<Integer,Integer,Boolean> f){
+    int[] m = new int[size];
+    ArrayList<Callable<Void>> filterers = new ArrayList<>();
+    final AtomicInteger j = new AtomicInteger(0);
+    final int step = arr.length/threadCount;
+    for(int i=0;i<threadCount;i++) {
+        final int from = i==0 ? 1 : i*step;
+        final int to = i==threadCount-1 ? arr.length : i*step+step;
+        filterers.add(() -> {
+            for(int h= from; h<to; h++)
+                if(f.apply(arr[h],partition)) m[j.getAndIncrement()]=arr[h];
+            return null;
+        });
+    }
+    try{ executor.invokeAll(filterers);
+    } catch (InterruptedException e) { System.err.println("Threads interrupted");}
+    return m;
+}
+
+static ExecutorService executor = Executors.newWorkStealingPool();
+public static int quickCountItTask(int[] in) {
+    int target = in.length/2;
+    do {
+        final AtomicInteger count = new AtomicInteger(0);
+        final int[] inp = in;
+        final int n = inp.length, p = inp[0];
+        final int step = n/threadCount;
+
+        //Counting
+        ArrayList<Callable<Void>> counters = new ArrayList<>();
+        for(int i=0;i<threadCount;i++) {
+            final int from = i==0 ? 1 : i*step; //skip pivot
+            //for undivisible numbers, just let the last thread take a larger chunk
+            final int to = i==threadCount-1 ? inp.length : i*step+step;
+            counters.add(() -> {
+                for(int j = from; j<to; j++)
+                    if(inp[j]<p) count.getAndIncrement(); 
+                return null;
+            });
+        }
+        try{ executor.invokeAll(counters);
+        } catch (InterruptedException e) { System.err.println("Threads interrupted");}
+
+        if (count.get() == target) return p; //Terminated
+
+        //Filtering
+        boolean tooLargeP = count.get() > target;
+        int size = tooLargeP ? count.get() : n-count.get()-1;
+        if(tooLargeP) {
+            in = filter(inp, p, size, (x,y) -> x < y);
+        } else {
+            in = filter(inp, p, size, (x,y) -> x >= y);
+            target=target-count.get()-1;
+        }
+    } while( true );
+}
+\end{lstlisting}
+\subsection{}
+Since the machine used for testing has 4 physical cores, this is the ideal amount of threads for the quickSelectIt. There is however only little difference between 4 and 8 since it supports hyperthreading\footnote{https://ark.intel.com/products/80806/Intel-Core-i7-4790-Processor-8M-Cache-up-to-4\_00-GHz}. Because of this, I have set the \texttt{threadCount} to 4, and tested with various input sizes. Figure \ref{fig:compTask} depicts the results. 
+\begin{figure}[!ht]
+    \centering
+    \noindent\includegraphics[scale=0.5]{res/graph_task.png}
+    \caption{Plot of running times per element between \texttt{quickCountIt} and \texttt{quickCountItTask}}
+    \label{fig:compTask}
+\end{figure}
+
+Perhaps in contrast to the expected outcome, \texttt{quickCountItTask} remains slower than \texttt{quickCountIt} even for large inputs. This can be due to how much it slows down on small inputs, with near $200ns/element$ for inputs of size 1000. Based on the Figure \ref{fig:compTask} it seems that it will not be able to catch up to the serial implementation no matter the input size.
+
+\subsection{}
 \subsection{TODO}
 
 
@@ -499,8 +582,8 @@ the whole system will halt as they wait to retrieve the lock. As such, this impl
 Firstly, assuming that we're talking Java, this would fail to typecheck, as we're returning an \texttt{AtomicInteger} from a method that supposedly returns an \texttt{int} and there is no implicit conversion from \texttt{AtomicInteger} to \texttt{int}. Even with this fixed, it would still fail, since two threads may enter the while loop before state changes, causing one of them to be stuck in the loop forever, since \texttt{state.compareAndSet(-1,x)} will then be returning false over and over. This will work if only one thread ever gets to enter the while loop and successfully \texttt{compareAndSet}s the \texttt{state}, since all other threads then merely get the value of the state, leading to consensus.
 
 \section{Question 7}
-\subsection{TODO}
-Implementation found in append section ...
+\subsection{}
+Implementation found in appendx section \ref{sec:akka}.
 
 \subsection{}
 Below is shown the output of three distinct runs of the Secure Communication System with Java+Akka.
@@ -530,7 +613,7 @@ decrypted: 'SECRET'
 \section{Appendix}
 \subsection{MyStack.java}
 \lstinputlisting{../src/Stack/MyStack.java}
-\subsection{SecComSys.java}
+\subsection{SecComSys.java}\label{sec:akka}
 \lstinputlisting{../src/Erlang/SecComSys.java}
 
 \end{document}
