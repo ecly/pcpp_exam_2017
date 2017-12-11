@@ -223,5 +223,240 @@ By merely adding a check to the given \texttt{union()} method in class \texttt{B
 executes without deadlocking.
 
 \section{Question 5}
+\subsection{}\label{sec:mystacksimple}
+\begin{lstlisting}
+import java.util.LinkedList;
+public class MyStack<T> {
+    private Object lock;
+    private LinkedList<T> stack;
 
+    public MyStack(){
+        lock = new Object();
+        stack = new LinkedList<T>();
+    }
+
+    public void push(T obj) {
+        synchronized(lock){
+            stack.push(obj);
+        }
+    }
+
+    public T pop() {
+        synchronized(lock){
+            return stack.pop();
+        }
+    }
+}
+\end{lstlisting}
+
+Above generic implementation utilizes that Java's \texttt{LinkedList} ships with \texttt{push} and \texttt{pop}.
+Alternatively we could use the combination \texttt{addLast} and \texttt{removeLast} or \texttt{addFirst} and \texttt{removeFirst} 
+of which the second pair by Java's documentation is equivalent to \texttt{push} and \texttt{pop}\footnote{https://docs.oracle.com/javase/7/docs/api/java/util/LinkedList.html}. 
+The locking could also be done implicitly on \texttt{this} by marking the methods as synchronized, but here we use an explicit lock object as it seems more in line with specification number 1.
+
+\subsection{}
+Given the following specifications (numbers), below are added bullet points (letters) for each one, describing why the implementation from \ref{sec:mystacksimple} is sufficient.
+\begin{enumerate}
+
+\item for each element that is pushed, there is at most one pop operation that returns that element.
+    \begin{enumerate}
+        \item Given that \texttt{pop} removes the single first element, and \texttt{push} only adds the element once, \texttt{pop} may only return an element pushed once.
+        \item Furthermore, since we are using a single lock, everything happens sequentially, removing any chance of reading off an element that was removed in a different thread.
+    \end{enumerate}
+\item If there are no further concurrent operations, pop will succeed (i.e. return a non-null value) if so far there
+have been more successful push than pop operations.
+    \begin{enumerate}
+        \item Same as 1.a.
+    \end{enumerate}
+\item If processor A pushed two elements x and y in this order, and processor B pops both elements, then this
+happens in reverse order. (There is no further constraint on ordering).
+    \begin{enumerate}
+        \item Since everything is handled sequentially due to the global lock, we have the guarantee that if one thread pushes two items, these will be pushed
+            in the order of which the thread called push. 
+        \item Given 3.a. and Java's Documentation stating that \texttt{push} and \texttt{pop} adds/removes from the head of the list, elements are bound to be popped
+            in reverse compared to the order of which they were pushed.
+    \end{enumerate}
+\end{enumerate}
+
+\subsection{}
+\subsubsection{Concurrency}
+To test for everything except reverse ordering, we define the below shown test \texttt{concurrentTest}.
+\begin{lstlisting}
+public static void concurrentTest(final int size, final int threads,  
+        MyStack<Integer> stack) throws Exception {
+    final CyclicBarrier startBarrier = new CyclicBarrier(threads+1), 
+          stopBarrier = startBarrier;
+
+    final int range = size/threads;
+    for (int i = 0; i < threads; ++i) {
+        final int nr = i;
+        Thread ti = new Thread(new Runnable() { public void run() {
+            try { startBarrier.await(); } catch (Exception exn) { }
+                for(int j = range*nr; j<range*nr+range; j++)
+                    stack.push(j);
+            try { stopBarrier.await(); } catch (Exception exn) { }
+        }});
+        ti.start();
+    }
+    startBarrier.await();
+    stopBarrier.await();
+    startBarrier.reset();
+    stopBarrier.reset();
+
+    final Set<Integer> pops = ConcurrentHashMap.newKeySet();
+    for (int i = 0; i < threads; ++i) {
+        final int nr = i;
+        Thread ti = new Thread(new Runnable() { public void run() {
+            try { startBarrier.await(); } catch (Exception exn) { }
+                for(int j = range*nr; j<range*nr+range; j++)
+                    pops.add(stack.pop());
+            try { stopBarrier.await(); } catch (Exception exn) { }
+        }});
+        ti.start();
+    }
+
+    startBarrier.await();
+    stopBarrier.await();
+
+    if (pops.size() == size) System.out.println("Concurrency works :)");
+    else  System.out.println("Concurrency doesn't work :(");
+}
+\end{lstlisting}
+
+We create \texttt{CyclicBarrier}s on line 3, which we use to ensure that our threads are working simultaenously. 
+We then assign different threads ranges between 0 and \texttt{size} in which they will push all numbers to the stack.
+
+When all the threads are ready, we call \texttt{startBarrier.await()} on line 17 to start the pushing and \texttt{stopBarrier.await()} on the next line
+to wait for all of them to finish pushing. 
+
+We now divide the work similarly for popping threads. For each number they pop, we add it to the \texttt{ConcurrentHashMap} backed \texttt{Set} defined on line 22. 
+When all threads are done popping, we can check whether the size of our \texttt{Set} is equal to the number of items we tried to add. 
+Since there are no duplicates in a \texttt{Set}, and we only pushed unique numbers, if these are equal we can with reasonably confidence say that our implementation is working.
+
+\textbf{Scaling:} In terms of scaling, since MyStack functions entirely sequentially, it scales poorly with multiple threads. In fact, the more threads we use, the more time will be spent 
+locking and waiting for locks, making it slower and slower. In table \ref{table:concTest} behavior is illustrated.
+
+\begin{table}[ht!]
+\centering
+\begin{tabular}{|l|l|l|l|l|l|l|}
+\hline
+Threads & 1 & 2 & 4 & 8 & 16 & 32 \\ \hline
+Time (sec) & 7.363 & 8.159 & 8.203 & 8.413 & 10.071 & 10.832 \\ \hline
+\end{tabular}
+\caption{Test times for conccurentTest with size 10,000,000}
+\label{table:concTest}
+\end{table}
+\subsubsection{Ordering} \label{sec:ordering}
+To test that order works for multiple threads, we push number $[0..n]$ onto the stack from thread A, and pop \texttt{n} items off the stack from thread B,
+checking that these are the numbers $[n..0]$.
+This is shown below in method \texttt{testOrder}.
+
+\begin{lstlisting}
+public static void testOrder(int n, MyStack<Integer> stack){
+    final AtomicBoolean working = new AtomicBoolean(true);
+    Thread A = new Thread(new Runnable() { public void run() {
+        for(int i=0; i<n; i++) stack.push(i);
+    }});
+    Thread B = new Thread(new Runnable() { public void run() {
+        for(int i=0; i<n; i++) 
+            working.compareAndSet(true, n-1-i == stack.pop());
+    }});
+    try {
+        A.start(); A.join();
+        B.join(); B.join();
+    } catch (Exception e) { 
+        System.out.println("Order dies >:("); 
+    }
+    if(working.get()) System.out.println("Order works :)");
+    else System.out.println("Order doesn't work :(");
+}
+\end{lstlisting}
+
+This behaviour was untested in \texttt{concurrentTest}, so a separate straight forward test to clear this up was needed.
+
+\subsection{}\label{sec:striping}
+Below is shown an implentation using striping, with a total of 32 stripes. To determine the stripe use \texttt{Thread.currentThread()hashCode()\%STRIPES)}
+as shown on line 16 and 24. We use an \texttt{ArrayList} to store our \texttt{LinkedList}s since we cannot create arrays of 
+parameterized types\footnote{https://docs.oracle.com/javase/tutorial/java/generics/restrictions.html#createArrays}.
+
+In \texttt{pop}, we use \texttt{i\%STRIPES} to iterate through the stacks, starting from the stack at the computed \texttt{stripe}, with wraparound.
+
+\begin{lstlisting}
+import java.lang.*;
+import java.util.*;
+public class MyStack<T> {
+    private Object lock;
+    private final List<LinkedList<T>> stacks;
+    private static final int STRIPES = 32;
+
+    public MyStack(){
+        lock = new Object();
+        stacks = new ArrayList<LinkedList<T>>();
+        for(int i = 0; i < STRIPES; i++)
+            stacks.add(new LinkedList<T>());
+    }
+
+    public void push(T obj) {
+        int stripe = Thread.currentThread().hashCode()%STRIPES;
+        LinkedList<T> stack = stacks.get(stripe);
+        synchronized(stack){
+            stack.push(obj);
+        }
+    }
+
+    public T pop() {
+        int stripe = Thread.currentThread().hashCode()%STRIPES;
+        for (int i = stripe; i < stripe+STRIPES; i++){
+            LinkedList<T> stack = stacks.get(i%STRIPES);
+            synchronized(stack){
+                if(stack.size() == 0) continue;
+                return stack.pop();
+            }
+        }
+        return null;
+    }
+}
+\end{lstlisting}
+
+\subsection{}
+With the new striping such that we are actually running concurrently we see improved performance in our tests.
+The fastest execution, as seen in table \ref{table:striping} was with 16 threads where it ran in 5.866 seconds. This is in contrast
+to the single threaded execution from table \ref{table:concTest} that ran in 7.363 seconds with a single thread. Considering that we have
+4 physical cores available, this is not that big of a performance improvement. This could be due to many threads hashing to the same stripe or
+due to the added iteration through all the stacks when we run into an empty one.
+
+
+\begin{table}[ht!]
+\centering
+\begin{tabular}{|l|l|l|l|l|l|l|}
+\hline
+Threads & 1 & 2 & 4 & 8 & 16 & 32 \\ \hline
+Time (sec) & 8.016 & 7.473 & 7.465 & 6.313 & 5.866 & 7.337 \\ \hline
+\end{tabular}
+\caption{Test times for MyStack with striping for conccurentTest with size 10,000,000}
+\label{table:striping}
+\end{table}
+
+\subsection{}
+Given our implementation described in \ref{sec:striping}, we modify line 29 to say:
+\begin{lstlisting}
+return i == stripe ? stack.pop() : stack.removeLast();
+\end{lstlisting}
+If we are on our own stripe's stack, pop from the front, otherwise pop from the back.
+
+\subsection{}
+Below is a description in pseudocode of what will go wrong given our changes in 5.6.
+
+\begin{lstlisting}
+//Thread A // Stripe 0
+myStack.push(0);
+myStack.push(1);
+
+//Thread B // Stripe 1
+myStack.pop(); // this will return 0 - should be 1
+myStack.pop(); // this will return 1 - should be 0
+\end{lstlisting}
+
+\subsection{}
+The code described in section \ref{sec:ordering} detects this issue and outputs "Order doesn't work :(" as expected.
 \end{document}
