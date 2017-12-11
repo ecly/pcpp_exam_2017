@@ -35,8 +35,15 @@
 
 \begin{document}
 \includepdf[pages=1]{res/front_page.pdf}
+
+\newpage
+\tableofcontents
+\newpage
+
 \maketitle
 \textit{I hereby declare that I have answered thede exam questions myself without any outside help.}\\
+
+I will be using inline code snippets, but include full files in the appendix.
 
 Through all tests, the same machine will be used. Below are the results of \texttt{SystemInfo}:
 
@@ -53,6 +60,7 @@ Date & 2017-12-11T09:20:13+0100
 \caption{System Info}
 \label{sysinfo}
 \end{table}
+\newpage
 
 \section{Question 1}
 \subsection{}
@@ -70,7 +78,10 @@ We do however see parallel sort get rather close to the expected linear running 
 allowing an approximate 4 time speedup from the serial implementation. Between the expected linear running time algorithms, it seems serial quickselect 
 beat out its quickcount counterparts, however the difference is so small that we have yet to find a definitive winner.
 
-\subsection{}
+\subsection{TODO}
+\subsection{TODO}
+\subsection{TODO}
+\subsection{TODO}
 
 
 \section{Question 2}
@@ -134,9 +145,7 @@ public static int quickCountStream(int[] inp) {
             .collect(Collectors.partitioningBy(i -> i < p));
 
         List<Integer> smaller = res.get(true);
-        System.out.println(Arrays.toString(smaller.toArray()));
         List<Integer> bigger = res.get(false);
-        System.out.println(Arrays.toString(bigger.toArray()));
 
         if (smaller.size() == target) break;
         if (smaller.size() > target) list = smaller;
@@ -152,7 +161,7 @@ To avoid having to constantly do boxing, since Collectors does not work with pri
 we start off by converting our \texttt([] inp) to \texttt{List<Integer>}.
 
 The \texttt{partitioningBy} collector gives us a map of all with two entries.
-The \texttt{true} entry on line 12, holding all elements larger than our partition element, and false entry on line 14 holding
+The \texttt{true} entry on line 12, holding all elements larger than our partition element, and false entry on line 13 holding
 all the elements larger than or equal to our partition element. The size of \texttt{smaller} now represents our \texttt{count}
 from before, and the remainder of the code is similar to the given code.
 
@@ -490,4 +499,38 @@ the whole system will halt as they wait to retrieve the lock. As such, this impl
 Firstly, assuming that we're talking Java, this would fail to typecheck, as we're returning an \texttt{AtomicInteger} from a method that supposedly returns an \texttt{int} and there is no implicit conversion from \texttt{AtomicInteger} to \texttt{int}. Even with this fixed, it would still fail, since two threads may enter the while loop before state changes, causing one of them to be stuck in the loop forever, since \texttt{state.compareAndSet(-1,x)} will then be returning false over and over. This will work if only one thread ever gets to enter the while loop and successfully \texttt{compareAndSet}s the \texttt{state}, since all other threads then merely get the value of the state, leading to consensus.
 
 \section{Question 7}
+\subsection{TODO}
+Implementation found in append section ...
+
+\subsection{}
+Below is shown the output of three distinct runs of the Secure Communication System with Java+Akka.
+\begin{verbatim}
+$ java -cp scala.jar:akka-actor.jar:akka-config.jar:. SecComSys
+public key: 18
+private key: 8
+cleartext: 'SECRET'
+encypted: 'KWUJWL'
+decrypted: 'SECRET'
+
+$ java -cp scala.jar:akka-actor.jar:akka-config.jar:. SecComSys
+public key: 2
+private key: 24
+cleartext: 'SECRET'
+encypted: 'UGETGV'
+decrypted: 'SECRET'
+
+$ java -cp scala.jar:akka-actor.jar:akka-config.jar:. SecComSys
+public key: 5
+private key: 21
+cleartext: 'SECRET'
+encypted: 'XJHWJY'
+decrypted: 'SECRET'
+\end{verbatim}
+
+\section{Appendix}
+\subsection{MyStack.java}
+\lstinputlisting{../src/Stack/MyStack.java}
+\subsection{SecComSys.java}
+\lstinputlisting{../src/Erlang/SecComSys.java}
+
 \end{document}

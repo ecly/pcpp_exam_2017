@@ -115,6 +115,71 @@ class TestQuickSelect {
         return p; // we are on target
     }
 
+    public static int quickCountItTask(int[] in) {
+        ExecutorService executor = Executors.newWorkStealingPool();
+        int target = in.length/2;
+        do {
+            final AtomicInteger count = new AtomicInteger(0);
+            final int[] inp = in;
+            final int n = inp.length;
+            final int p = inp[0];
+            final int step = n/threadCount;
+            // System.out.println(Arrays.toString(inp));
+
+            //Counting
+            ArrayList<Callable<Void>> counters = new ArrayList<>();
+            for(int i=0;i<threadCount;i++) {
+                final int from = i==0 ? 1 : i*step; //skip pivot
+                // for undivisible numbers, just let the last thread take a larger chunk
+                final int to = i==threadCount-1 ? inp.length : i*step+step;
+                counters.add(() -> {
+                    for(int j= from; j<to; j++)
+                        if(inp[j]<p) count.getAndIncrement(); 
+                    return null;
+                });
+            }
+            try{ executor.invokeAll(counters);
+            } catch (InterruptedException e) { System.err.println("Threads interrupted");}
+
+            if (count.get() == target) return p; //Terminated
+
+            //Filtering
+            ArrayList<Callable<Void>> filterers = new ArrayList<>();
+            final AtomicInteger j = new AtomicInteger(0);
+            if(count.get() > target) {
+                int[]m = new int[count.get()];
+                   for(int i=0;i<threadCount;i++) {
+                    final int from = i==0 ? 1 : i*step;
+                    final int to = i==threadCount-1 ? inp.length : i*step+step;
+                    filterers.add(() -> {
+                        for(int h= from; h<to; h++)
+                            if(inp[h]<p) m[j.getAndIncrement()]=inp[h];
+                        return null;
+                    });
+                }
+                try{ executor.invokeAll(filterers);
+                } catch (InterruptedException e) { System.err.println("Threads interrupted");}
+                in = m;
+            }
+            if(count.get() < target) {
+                int m[] = new int[n-count.get()-1];
+                   for(int i=0;i<threadCount;i++) {
+                    final int from = i==0 ? 1 : i*step;
+                    final int to = i==threadCount-1 ? inp.length : i*step+step;
+                    filterers.add(() -> {
+                        for(int h= from; h<to; h++)
+                            if(inp[h]>=p) m[j.getAndIncrement()]=inp[h];
+                        return null;
+                    });
+                }
+                try{ executor.invokeAll(filterers);
+                } catch (InterruptedException e) { System.err.println("Threads interrupted");}
+                target=target-count.get()-1;
+                in = m;
+            }
+        } while( true );
+    }
+
     public static int quickCountStream(int[] inp) {
         int partition=-1;
         int target = inp.length/2;
@@ -127,9 +192,7 @@ class TestQuickSelect {
                 .collect(Collectors.partitioningBy(i -> i < p));
 
             List<Integer> smaller = res.get(true);
-            System.out.println(Arrays.toString(smaller.toArray()));
             List<Integer> bigger = res.get(false);
-            System.out.println(Arrays.toString(bigger.toArray()));
 
             if (smaller.size() == target) break;
             if (smaller.size() > target) list = smaller;
@@ -140,82 +203,6 @@ class TestQuickSelect {
        } while( true );
         return partition; // we are on target
     }
-
-    // public static int quickCountIt(int[] input) {
-    //     ExecutorService executor = Executors.newWorkStealingPool();
-    //     AtomicIntegerArray in = new AtomicIntegerArray(input);
-    //     final AtomicInteger count = new AtomicInteger(0);
-    //     int partition=-1, n=in.length();
-    //     int target = n/2;
-    //     int iter = 0;
-    //     do {
-    //         System.err.println("Iteration: " + iter++);
-    //         final AtomicIntegerArray inp = in;
-    //         n = inp.length();
-    //         partition = inp.get(0);
-    //         final int p = partition; //final ref to partition
-    //         count.set(0); // reset count
-    //         final int step = n/threadCount;
-
-    //         System.out.print(inp.toString());
-
-    //         ArrayList<Callable<Void>> counters = new ArrayList<>();
-    //         for(int i=0;i<threadCount;i++) {
-    //             final int from = i==0 ? 1 : i*step; //skip pivot
-    //             final int to = i*step+step;
-    //             counters.add(() -> {
-    //                 for(int j= from; j<to; j++){
-    //                     if(inp.get(j)<p) count.getAndIncrement(); 
-    //                 }
-    //                 return null;
-    //             });
-    //         }
-    //         try{ executor.invokeAll(counters);
-    //         } catch (InterruptedException e) { System.err.println("Threads interrupted");}
-
-    //         if (count.get() == target) break; // finished
-
-    //         final ArrayList<Callable<Void>> partitioners = new ArrayList<>();
-    //         final AtomicInteger j = new AtomicInteger(0);
-    //         if(count.get() > target) {
-    //             final AtomicIntegerArray m = new AtomicIntegerArray(count.get());
-    //             for(int i=0;i<threadCount;i++) {
-    //                 final int from = i==0 ? 1 : i*step; //skip pivot
-    //                 final int to = i*step+step;
-    //                 partitioners.add(() -> {
-    //                     for(int h= from; h<to; h++){
-    //                         System.err.println("LuL");
-    //                         if(inp.get(h)<p){
-    //                             m.set(count.getAndIncrement(), inp.get(h));
-    //                             System.err.println("LAL");
-    //                         }
-    //                     }
-    //                     return null;
-    //                 });
-    //             }
-    //             try{ executor.invokeAll(counters);
-    //             } catch (InterruptedException e) { System.err.println("Threads interrupted");}
-    //             in = m;
-    //         }
-    //         else {
-    //             final AtomicIntegerArray m = new AtomicIntegerArray(n-count.get()-1);
-    //             for(int i=0;i<threadCount;i++) {
-    //                 final int from = i==0 ? 1 : i*step; //skip pivot
-    //                 final int to = i*step+step;
-    //                 partitioners.add(() -> {
-    //                     for(int h=from; h<to; h++)
-    //                         if(inp.get(h)>=p) m.set(count.getAndIncrement(), inp.get(h));
-    //                     return null;
-    //                 });
-    //             }
-    //             try{ executor.invokeAll(counters);
-    //             } catch (InterruptedException e) { System.err.println("Threads interrupted");}
-    //             in = m;
-    //             target=target-count.get()-1;
-    //         }
-    //     } while( true );
-    //     return partition; 
-    // }
 
     public static void main( String [] args ) {
         SystemInfo();
@@ -246,21 +233,18 @@ class TestQuickSelect {
         int[] testArray = new int[]{9,2,4,3,5,7,1,8,9,6};
         System.out.println("MedianST: " + quickCountStream(testArray));
         System.out.println("MedianIT: " + quickCountIt(testArray));
+        System.out.println("MedianITTask: " + quickCountItTask(testArray));
         double d=0.0;
         // d += Mark9("serial sort", a.length, x -> medianSort(a));
         // d += Mark9("parall sort", a.length, x -> medianPSort(a));
         // d += Mark9("serial qsel", a.length, x -> quickSelect(a));
         // d += Mark9("ser countRc", a.length,x -> quickCountRec(a,a.length/2));
-        // d += Mark9("ser countIt", a.length,x -> quickCountIt(a));
-        // d += Mark9("countStream", a.length,x -> quickCountStream(a));
+  
+        d += Mark9("ser countIt", a.length,x -> quickCountIt(a));
+        d += Mark9("par countIt", a.length,x -> quickCountItTask(a));
+        d += Mark9("countStream", a.length,x -> quickCountStream(a));
 
-        // d += Mark7("parall sort", x -> medianPSort(a));
-        // d += Mark7("serial qsel", x -> quickSelect(a));
-        // d += Mark7("ser countRc", x -> quickCountRec(a,a.length/2));
-        // d += Mark7("ser countIt", x -> quickCountIt(a));
-
-        //d += Mark9("task countt", a.length,x -> quickCountItTask(a));
-        //d += Mark9("task countR", a.length,x -> quickCountRecTask(a,a.length/2));
+        // d += Mark9("task countR", a.length,x -> quickCountRecTask(a,a.length/2));
         System.out.println(d);
     }
 
