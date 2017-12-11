@@ -20,7 +20,7 @@
     showstringspaces=false,
     columns=flexible,
     basicstyle={\small\ttfamily},
-    numbers=none,
+    numbers=left,
     numberstyle=\tiny\color{gray},
     keywordstyle=\color{blue},
     commentstyle=\color{dkgreen},
@@ -120,4 +120,108 @@ Combining the two we get above implementation, which yields correct results.
 Here we simply throw \texttt{.parallel()} onto the pipelines from before.
 
 \subsection{}
+
+\begin{lstlisting}
+public static int quickCountStream(int[] inp) {
+    int partition=-1;
+    int target = inp.length/2;
+    // Since we have to be working with boxed Integers. We start off by converting.
+    List<Integer> list = Arrays.stream(inp).boxed().collect(Collectors.toList());
+    do {
+        partition = list.get(0);
+        final Integer p = partition;
+        Map<Boolean, List<Integer>> res = list.stream().skip(1).parallel()
+            .collect(Collectors.partitioningBy(i -> i < p));
+
+        List<Integer> smaller = res.get(true);
+        System.out.println(Arrays.toString(smaller.toArray()));
+        List<Integer> bigger = res.get(false);
+        System.out.println(Arrays.toString(bigger.toArray()));
+
+        if (smaller.size() == target) break;
+        if (smaller.size() > target) list = smaller;
+        else {
+            target=target-smaller.size()-1;
+            list = bigger;
+        }
+   } while( true );
+    return partition; // we are on target
+}
+\end{lstlisting}
+To avoid having to constantly do boxing, since Collectors does not work with primitives,
+we start off by converting our \texttt([] inp) to \texttt{List<Integer>}.
+
+The \texttt{partitioningBy} collector gives us a map of all with two entries.
+The \texttt{true} entry on line 12, holding all elements larger than our partition element, and false entry on line 14 holding
+all the elements larger than or equal to our partition element. The size of \texttt{smaller} now represents our \texttt{count}
+from before, and the remainder of the code is similar to the given code.
+
+\subsection{TODO} 
+
+\section{Question 3 - TODO}
+By initially deciding what ranges threads will work on for the entire algorithm, we risk a thread winding up
+with a range of the input that we can discard as useless after a single iteration. 
+
+\section{Question 4}
+\subsection{}
+We are not guaranteed to always grab locks in the same order, hence we are prone to dead-locks.
+
+\subsection{}
+
+\begin{lstlisting}
+union(0,1)
+union(1,0)
+\end{lstlisting}
+
+Above example when executed in parallel may lead to the first call grabbing the lock on \texttt{nodes[0]}, the second call grabbing the lock on \texttt{nodes[1]} and both calls thereafter waiting to get the lock on the node that their counterpart already grabbed.
+
+\subsection{}
+We modify the given \texttt{concurrent()} method in class \texttt{UnionFindTest} in file \texttt{MyUnionFind.java} to target the issue we identified in 4.1.
+\begin{lstlisting}
+public void deadlock(final int size, final UnionFind uf) throws Exception {
+    final int[] numbers = new int[size];
+    for (int i = 0; i < numbers.length; ++i) numbers[i] = i;
+    final int threadCount = 32;
+    final CyclicBarrier startBarrier = new CyclicBarrier(threadCount+1), 
+          stopBarrier = startBarrier;
+    Collections.shuffle(Arrays.asList(numbers));
+    for (int i = 0; i < threadCount; ++i) {
+        final boolean reverse = i%2==0;
+        Thread ti = new Thread(new Runnable() { public void run() {
+            try { startBarrier.await(); } catch (Exception exn) { }
+            if (reverse)
+                for (int j=0; j<100; j++)
+                    for (int i = 0; i < numbers.length - 1; ++i) 
+                        uf.union(numbers[i], numbers[i + 1]);
+            else 
+                for (int j=0; j<100; j++)
+                    for (int i = 0; i < numbers.length - 1; ++i) 
+                        uf.union(numbers[i + 1], numbers[i]);
+            try { stopBarrier.await(); } catch (Exception exn) { }
+        }});
+        ti.start();
+    }
+    startBarrier.await();
+    stopBarrier.await();
+    final int root = uf.find(0);
+    for (int i : numbers) {
+        assertEquals(uf.find(i), root);
+    }
+    System.out.println("No deadlocks");
+}
+\end{lstlisting}
+
+As seen from line 10 to 20, half the threads will now be attempting to union nodes in reverse order of the other half.
+From my tests, calling the above defined \texttt{deadlock} method with parameters shown below, deadlocked every time.
+
+\begin{lstlisting}
+UnionFindTest test = new UnionFindTest();
+test.deadlock(itemCount, new BogusFineUnionFind(itemCount));
+\end{lstlisting}
+
+By merely adding a check to the given \texttt{union()} method in class \texttt{BogusFineUnionFind} to ensure we always lock the lowest entry of the \texttt{nodes} array first, the deadlock test
+executes without deadlocking.
+
+\section{Question 5}
+
 \end{document}

@@ -116,22 +116,28 @@ class TestQuickSelect {
     }
 
     public static int quickCountStream(int[] inp) {
-        int partition=-1, count=0, n=inp.length;
-        int target = n/2;
+        int partition=-1;
+        int target = inp.length/2;
+        // Since we have to be working with boxed Integers. We start off by converting.
+        List<Integer> list = Arrays.stream(inp).boxed().collect(Collectors.toList());
         do {
-            partition=inp[0];
-            final int p = partition;
-            n=inp.length;
-            count = (int) Arrays.stream(inp).skip(1).parallel().filter(i -> i < p).count();
-            Arrays.stream(inp).skip(1).parallel().collect(Collectors.partitioningBy(i -> i < p));
-            if (count == target) break;
-            if (count > target){
-                inp = Arrays.stream(inp).skip(1).parallel().filter(i -> i < p).toArray();
-            }else{
-                inp = Arrays.stream(inp).skip(1).parallel().filter(i -> i >= p).toArray();
-                target=target-count-1;
+            partition = list.get(0);
+            final Integer p = partition;
+            Map<Boolean, List<Integer>> res = list.stream().skip(1).parallel()
+                .collect(Collectors.partitioningBy(i -> i < p));
+
+            List<Integer> smaller = res.get(true);
+            System.out.println(Arrays.toString(smaller.toArray()));
+            List<Integer> bigger = res.get(false);
+            System.out.println(Arrays.toString(bigger.toArray()));
+
+            if (smaller.size() == target) break;
+            if (smaller.size() > target) list = smaller;
+            else {
+                target=target-smaller.size()-1;
+                list = bigger;
             }
-        } while( true );
+       } while( true );
         return partition; // we are on target
     }
 
@@ -244,9 +250,9 @@ class TestQuickSelect {
         // d += Mark9("serial sort", a.length, x -> medianSort(a));
         // d += Mark9("parall sort", a.length, x -> medianPSort(a));
         // d += Mark9("serial qsel", a.length, x -> quickSelect(a));
-        d += Mark9("ser countRc", a.length,x -> quickCountRec(a,a.length/2));
-        d += Mark9("ser countIt", a.length,x -> quickCountIt(a));
-        d += Mark9("countStream", a.length,x -> quickCountStream(a));
+        // d += Mark9("ser countRc", a.length,x -> quickCountRec(a,a.length/2));
+        // d += Mark9("ser countIt", a.length,x -> quickCountIt(a));
+        // d += Mark9("countStream", a.length,x -> quickCountStream(a));
 
         // d += Mark7("parall sort", x -> medianPSort(a));
         // d += Mark7("serial qsel", x -> quickSelect(a));
