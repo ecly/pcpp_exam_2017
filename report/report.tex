@@ -223,6 +223,18 @@ By merely adding a check to the given \texttt{union()} method in class \texttt{B
 executes without deadlocking.
 
 \section{Question 5}
+\textbf{Specifications}:
+\begin{enumerate}
+\item pop returns an inserted item or the value null. It might block until another concurrent operation completes,
+but it will return without delay if no other operation is happening simultaneously. In particular, it will not
+block until another thread inserts some element.
+\item for each element that is pushed, there is at most one pop operation that returns that element.
+\item If there are no further concurrent operations, pop will succeed (i.e. return a non-null value) if so far there
+have been more successful push than pop operations.
+\item If processor A pushed two elements x and y in this order, and processor B pops both elements, then this
+happens in reverse order. (There is no further constraint on ordering).
+\end{enumerate}
+
 \subsection{}\label{sec:mystacksimple}
 \begin{lstlisting}
 import java.util.LinkedList;
@@ -243,7 +255,7 @@ public class MyStack<T> {
 
     public T pop() {
         synchronized(lock){
-            return stack.pop();
+            return stack.peek() != null ? stack.pop() : null;
         }
     }
 }
@@ -252,24 +264,28 @@ public class MyStack<T> {
 Above generic implementation utilizes that Java's \texttt{LinkedList} ships with \texttt{push} and \texttt{pop}.
 Alternatively we could use the combination \texttt{addLast} and \texttt{removeLast} or \texttt{addFirst} and \texttt{removeFirst} 
 of which the second pair by Java's documentation is equivalent to \texttt{push} and \texttt{pop}\footnote{https://docs.oracle.com/javase/7/docs/api/java/util/LinkedList.html}. 
+In \texttt{pop}, given that the specification states that we should return null if the list is empty, we use \texttt{peek} to check if there is a first element, if there isn't return null, otherwise \texttt{pop}.
 The locking could also be done implicitly on \texttt{this} by marking the methods as synchronized, but here we use an explicit lock object as it seems more in line with specification number 1.
 
 \subsection{}
-Given the following specifications (numbers), below are added bullet points (letters) for each one, describing why the implementation from \ref{sec:mystacksimple} is sufficient.
+Given the initially stated  specifications, below are added bullet points (letters) matching specifications, describing why the implementation from \ref{sec:mystacksimple} is sufficient.
 \begin{enumerate}
 
-\item for each element that is pushed, there is at most one pop operation that returns that element.
+\item 
+    \begin{enumerate}
+        \item We take care of this explicitly in the implementation for \texttt{MyStack} in section \ref{sec:mystacksimple}, where we on line 19, \texttt{peek} prior to popping.
+            If we blindly popped on an empty list, we would get a \texttt{NoSuchElementException}\footnote{https://docs.oracle.com/javase/7/docs/api/java/util/LinkedList.html\#pop()}.
+    \end{enumerate}
+\item
     \begin{enumerate}
         \item Given that \texttt{pop} removes the single first element, and \texttt{push} only adds the element once, \texttt{pop} may only return an element pushed once.
         \item Furthermore, since we are using a single lock, everything happens sequentially, removing any chance of reading off an element that was removed in a different thread.
     \end{enumerate}
-\item If there are no further concurrent operations, pop will succeed (i.e. return a non-null value) if so far there
-have been more successful push than pop operations.
+\item
     \begin{enumerate}
-        \item Same as 1.a.
+        \item Same as 2.a.
     \end{enumerate}
-\item If processor A pushed two elements x and y in this order, and processor B pops both elements, then this
-happens in reverse order. (There is no further constraint on ordering).
+\item 
     \begin{enumerate}
         \item Since everything is handled sequentially due to the global lock, we have the guarantee that if one thread pushes two items, these will be pushed
             in the order of which the thread called push. 
@@ -377,7 +393,7 @@ This behaviour was untested in \texttt{concurrentTest}, so a separate straight f
 \subsection{}\label{sec:striping}
 Below is shown an implentation using striping, with a total of 32 stripes. To determine the stripe use \texttt{Thread.currentThread()hashCode()\%STRIPES)}
 as shown on line 16 and 24. We use an \texttt{ArrayList} to store our \texttt{LinkedList}s since we cannot create arrays of 
-parameterized types\footnote{https://docs.oracle.com/javase/tutorial/java/generics/restrictions.html#createArrays}.
+parameterized types\footnote{https://docs.oracle.com/javase/tutorial/java/generics/restrictions.html\#createArrays}.
 
 In \texttt{pop}, we use \texttt{i\%STRIPES} to iterate through the stacks, starting from the stack at the computed \texttt{stripe}, with wraparound.
 
@@ -459,4 +475,19 @@ myStack.pop(); // this will return 1 - should be 0
 
 \subsection{}
 The code described in section \ref{sec:ordering} detects this issue and outputs "Order doesn't work :(" as expected.
+
+\section{Question 6}
+\subsection{}
+The given code has the flaw that it allows multiple threads to get into the else block before anyone changes the \texttt{state}.
+This means that in an example with thread \texttt{A} calling \texttt{consensus(x)} and thread \texttt{B} calling \texttt{consensus(y)}, both may retrieve return values
+indicating that parameter value \texttt{x} or \texttt{y} is the consensus, whereas only one of them will be stored in \texttt{state}. Hence we have a race condition.
+
+\subsection{}
+Using synchronization on some lock, in this case on \texttt{this}, has a problem with termination. If one process is to fail while holding the lock, or fall asleep for an extended amount of time,
+the whole system will halt as they wait to retrieve the lock. As such, this implementation is not fault tolerant.
+
+\subsection{}
+Firstly, assuming that we're talking Java, this would fail to typecheck, as we're returning an \texttt{AtomicInteger} from a method that supposedly returns an \texttt{int} and there is no implicit conversion from \texttt{AtomicInteger} to \texttt{int}. Even with this fixed, it would still fail, since two threads may enter the while loop before state changes, causing one of them to be stuck in the loop forever, since \texttt{state.compareAndSet(-1,x)} will then be returning false over and over. This will work if only one thread ever gets to enter the while loop and successfully \texttt{compareAndSet}s the \texttt{state}, since all other threads then merely get the value of the state, leading to consensus.
+
+\section{Question 7}
 \end{document}
