@@ -1,0 +1,11 @@
+# OS:   Linux; 4.13.12-1-ARCH; amd64
+# JVM:  Oracle Corporation; 1.8.0_144
+# CPU:  null; 8 "cores"
+# Date: 2017-12-11T09:20:13+0100
+
+serial sort                          73.8 ns      82.47          2
+parall sort                          16.3 ns      18.19          2
+serial qsel                          10.4 ns      11.60          4
+ser countRc                          11.0 ns      12.33          4
+ser countIt                          11.3 ns      12.66          4
+9.9993575E7
