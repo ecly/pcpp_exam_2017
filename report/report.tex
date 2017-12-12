@@ -43,7 +43,7 @@
 \maketitle
 \textit{I hereby declare that I have answered the exam questions myself without any outside help.}\\
 
-Throughout the report, I will be using inline code snippets, but include full files in the appendix. For all tests, the same machine will be used. Table \ref{table:sysinfo} contains the results of \texttt{SystemInfo}:
+Throughout the report, there will be inline code snippets. Full versions of modified files can be found in the appendix. For all testing, the same machine will be used. Table \ref{table:sysinfo} contains the output of running the method \texttt{SystemInfo} from \texttt{MyUnionFind.java}, found in section \ref{sec:myunionfind}.
 
 \par\noindent\rule{\textwidth}{0.4pt}
 \begin{table}[!ht]
@@ -63,7 +63,7 @@ Date & 2017-12-11T09:20:13+0100
 
 \section{Question 1}
 \subsection{}
-Seeing as we are interested in seeing how well each implementation performs on random input of different sizes, we use Mark9 for the benchmarking, as it calculates the per element mean time and standard deviation.
+Seeing as we are interested in seeing how well each implementation performs on random input of different sizes, we use \texttt{Mark9} for the benchmarking, seeing as it calculates the per element mean time for us.
 
 \begin{figure}[!ht]
     \centering
@@ -285,7 +285,7 @@ In Figure \ref{fig:graphq2} we have tested all implementations from Figure \ref{
 \begin{figure}[ht!]
     \centering
     \noindent\includegraphics[scale=0.45]{res/graph_q2.png}
-    \caption{Plot of running times including parallel iterative and stream based. Tested with input size $10^7$.}
+    \caption{Plot of running times including parallel iterative and stream based. Tested with input size $10^7$}
     \label{fig:graphq2}
 \end{figure}
 
@@ -389,7 +389,7 @@ public class MyStack<T> {
 
 Above generic implementation utilizes that Java's \texttt{LinkedList} ships with \texttt{push} and \texttt{pop}.
 Alternatively we could use the combination \texttt{addLast} and \texttt{removeLast} or \texttt{addFirst} and \texttt{removeFirst} of which the second pair by Java's documentation is equivalent to \texttt{push} and \texttt{pop}\footnote{https://docs.oracle.com/javase/7/docs/api/java/util/LinkedList.html}. 
-In \texttt{pop}, given that the specification states that we should return null if the list is empty, we use \texttt{peek} to check if there is a first element, if there isn't return null, otherwise \texttt{pop}.
+In \texttt{pop}, given that the specification states that we should return null if the list is empty, we use \texttt{peek} to check if there is a first element, if there is not, return null, otherwise \texttt{pop}.
 The locking could also be done implicitly on \texttt{this} by marking the methods as synchronized, but here we use an explicit global lock \texttt{Object} as it seems more in line with specification number 1.
 
 \subsection{}
@@ -648,7 +648,7 @@ decrypted: 'SECRET'
 \lstinputlisting{../src/Erlang/SecComSys.java}
 \subsection{TestQuickSelect.java}
 \lstinputlisting{../src/QuickSelect/TestQuickSelect.java}
-\subsection{MyUnionFind.java}
+\subsection{MyUnionFind.java}\label{sec:myunionfind}
 \lstinputlisting{../src/UnionFind/MyUnionFind.java}
 \subsection{MyStack.java}
 \lstinputlisting{../src/Stack/MyStack.java}
