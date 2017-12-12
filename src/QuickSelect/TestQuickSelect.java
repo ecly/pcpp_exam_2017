@@ -134,7 +134,7 @@ class TestQuickSelect {
         return m;
     }
 
-    static ExecutorService executor = Executors.newWorkStealingPool();
+    final static ExecutorService executor = Executors.newWorkStealingPool();
     final static int CUTOFF = 10_000;
     public static int quickCountItTask(int[] in) {
         int target = in.length/2;
