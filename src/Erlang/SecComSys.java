@@ -149,7 +149,7 @@ class SenderActor extends UntypedActor {
         }
     }
 }
-//
+
 // -- MAIN --------------------------------------------------
 
 public class SecComSys {
@@ -164,4 +164,3 @@ public class SecComSys {
         system.shutdown();
     }
 }
-

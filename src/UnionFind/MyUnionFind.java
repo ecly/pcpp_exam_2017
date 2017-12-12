@@ -1,21 +1,10 @@
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReferenceArray;
-
-import java.util.concurrent.Callable;
-import java.util.concurrent.CyclicBarrier;
-
-import java.util.Arrays;
-import java.util.Collections;
+import java.util.concurrent.atomic.*;
+import java.util.concurrent.*;
+import java.util.*;
 
 public class MyUnionFind {
     public static void main(String[] args) throws Exception {
         final int itemCount = 10_000;
-        {
-            UnionFindTest test = new UnionFindTest();
-            test.sequential(new FineUnionFind(5));
-            test.concurrent(itemCount, new FineUnionFind(itemCount));
-            test.deadlock(itemCount, new FineUnionFind(itemCount));
-        }
         // Question 4.3
         {
             UnionFindTest test = new UnionFindTest();
@@ -34,7 +23,6 @@ interface UnionFind {
 
 // Test of union-find data structures, adapted from Florian Biermann's
 // MSc thesis, ITU 2014
-
 class UnionFindTest extends Tests {
 
     public void sequential(UnionFind uf) throws Exception {
@@ -143,7 +131,6 @@ class Tests {
 // But the fields of Node objects are written (by union and compress
 // while holding locks), and read by find without holding locks, so
 // must be made volatile.
-
 class FineUnionFind implements UnionFind {
     private final Node[] nodes;
 

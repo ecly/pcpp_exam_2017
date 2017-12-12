@@ -1,20 +1,8 @@
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Random;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Comparator;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import java.util.stream.Stream;
-import java.util.function.IntFunction;
-import java.util.function.IntToDoubleFunction;
-import java.util.function.Function;
+import java.util.*;
+import java.util.stream.*;
+import java.util.function.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
-import java.util.function.BiFunction;
 
 class TestQuickSelect {
     public static int medianSort(int[] inp) {
@@ -60,7 +48,6 @@ class TestQuickSelect {
             p = partition(w,min,max);
             if( p < target )  min=p+1;
             if( p > target )  max=p;
-            //      System.out.println(" "+p+"   "+target);
         } while(p!=target);
         return w[p];
     }
@@ -248,8 +235,6 @@ class TestQuickSelect {
             System.out.println(medianPSort(a));
             System.out.println(quickCountRec(a,a.length/2));
         }
-        //    System.exit(0);
-        int[] testArray = new int[]{9,2,4,3,5,7,1,8,9,6};
         double d=0.0;
         d += Mark9("serial sort", a.length, x -> medianSort(a));
         d += Mark9("parall sort", a.length, x -> medianPSort(a));
@@ -259,30 +244,7 @@ class TestQuickSelect {
         d += Mark9("par countIt", a.length,x -> quickCountItTask(a));
         d += Mark9("countStream", a.length,x -> quickCountStream(a));
         d += Mark9("countStreamP", a.length,x -> quickCountStreamP(a));
-        // d += Mark9("task countR", a.length,x -> quickCountRecTask(a,a.length/2));
         System.out.println(d);
-    }
-
-    public static double Mark7(String msg, IntToDoubleFunction f) {
-        int n = 10, count = 1, totalCount = 0;
-        double dummy = 0.0, runningTime = 0.0, st = 0.0, sst = 0.0;
-        do { 
-            count *= 2;
-            st = sst = 0.0;
-            for (int j=0; j<n; j++) {
-                Timer t = new Timer();
-                for (int i=0; i<count; i++) 
-                    dummy += f.applyAsDouble(i);
-                runningTime = t.check();
-                double time = runningTime * 1e9 / count;
-                st += time; 
-                sst += time * time;
-                totalCount += count;
-            }
-        } while (runningTime < 0.25 && count < Integer.MAX_VALUE/2);
-        double mean = st/n, sdev = Math.sqrt((sst - mean*mean*n)/(n-1));
-        System.out.printf("%-25s %15.1f ns %10.2f %10d%n", msg, mean, sdev, count);
-        return dummy / totalCount;
     }
 
     public static double Mark9(String msg, int size, IntToDoubleFunction f) {
