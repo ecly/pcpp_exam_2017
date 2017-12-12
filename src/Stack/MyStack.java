@@ -3,7 +3,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
 public class MyStack<T> {
-    private Object lock;
+    private final Object lock;
     private final List<LinkedList<T>> stacks;
     private static final int STRIPES = 32;
 

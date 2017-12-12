@@ -68,26 +68,27 @@ Seeing as we are interested in seeing how well each implementation performs on r
 \begin{figure}[!ht]
     \centering
     \noindent\includegraphics[scale=0.5]{res/graph_q1.png}
-    \caption{Plot of running times of given implementations. Tested with input size $10^7$.}
+    \caption{Plot of running time per element for given implementations. Tested with input size $10^7$}
     \label{fig:graphq1}
 \end{figure}
 
 From Graph \ref{fig:graphq1} we see that, perhaps unsurprisingly, the serial \texttt{quickSelect} and \texttt{quickCount} implementations beat out serial sort entirely.
 We do however see parallel sort get rather close to the expected linear running time implementations, due to the test machine having a quad-core CPU,
-allowing an approximate 4 time speedup from the serial implementation. Between the expected linear running time algorithms, serial \texttt{quickSelect} beats out its \texttt{quickCount} counterparts. This may be due to \texttt{quickSelect} avoiding spending time allocating new memory, other than its initial copy.
+allowing an approximate 4 time speedup from its serial implementation. Between the expected linear running time algorithms, serial \texttt{quickSelect} beats out \texttt{quickCount} confidently. This may be due to \texttt{quickSelect} avoiding spending time allocating new memory, other than its initial copy.
 
 \subsection{}
 Below is shown a parallel \texttt{quickCount} implementation using tasks, where \texttt{quickCountItTask} is the main function, and \texttt{filter} is the auxiliary method
 in which the parallel filtering is done. The filter method mainly serves to reduce code duplication as the original implementation is near identical
 for the filtering cases where we either have a too larger or a too small selected partition number.
 
-To allow multiple tasks to safely increment \texttt{count}, we use a \texttt{final AtomicInteger} on line 28. In general for each iteration, all variables that we need to access
+To allow multiple tasks to safely increment \texttt{count}, we use a \texttt{final AtomicInteger} on line 27. In general for each iteration, all variables that we need to access
 from within the threads are made final, as we get compile errors otherwise. For task partitioning, we try to split up the input array in even intervals skipping the partition element. For indivisible numbers,
-we give the leftovers to the last created task. This can slow us down a little bit, since one task may end up doing more work than the others. In \texttt{filter} we take the same
-approach to partitioning, and now use an \texttt{AtomicInteger} on line 8, to safely keep track of what index in the new array \texttt{m} we want to insert the next value in. This ensures that
+we give the leftovers to the last created task. This can slow us down a little bit, since one task may end up doing more work than the others. In the \texttt{filter} method we take the same
+approach to partitioning, and once more use an \texttt{AtomicInteger} on line 7, to safely keep track of what index in the new array \texttt{m} we want to insert the next value in. This ensures that
 we never try to write to the same index of \texttt{m} twice.
 
 Other than these parallelization measures, the overall structure of \texttt{quickCountItTask} is similar to that of the given \texttt{quickCountTask}.
+For correctness we compare \texttt{quickCountItTask}'s output to that of our given reference implementations and observe that it yields expected results.
 
 \begin{lstlisting}
 // Takes an arr, a partition, the size of the output array and a BiFunction,
@@ -151,7 +152,7 @@ public static int quickCountItTask(int[] in) {
 }
 \end{lstlisting}
 \subsection{}
-Since the machine used for testing has 4 physical cores, this is the ideal amount of threads for the quickSelectIt. There is however only little difference between 4 and 8 since it supports hyperthreading\footnote{https://ark.intel.com/products/80806/Intel-Core-i7-4790-Processor-8M-Cache-up-to-4\_00-GHz}. Because of this, I have set the \texttt{threadCount} to 4, and tested with various input sizes. Figure \ref{fig:compTask} depicts the results. 
+Since the machine used for testing has 4 physical cores, this is the ideal amount of threads for the quickSelectIt. There is however only little difference between 4 and 8 since it supports hyperthreading\footnote{https://ark.intel.com/products/80806/Intel-Core-i7-4790-Processor-8M-Cache-up-to-4\_00-GHz}. Because of this, we set the \texttt{threadCount} to 4, and test with various input sizes. Figure \ref{fig:compTask} depicts the results. 
 \begin{figure}[!ht]
     \centering
     \noindent\includegraphics[scale=0.5]{res/graph_task.png}
@@ -162,7 +163,7 @@ Since the machine used for testing has 4 physical cores, this is the ideal amoun
 Perhaps in contrast to the expected outcome, \texttt{quickCountItTask} remains slower than \texttt{quickCountIt} even for large inputs. This can be due to how much it slows down on small inputs, with near $200ns/element$ for inputs of size $10^3$. Based on the Figure \ref{fig:compTask} it seems that it will not be able to catch up to the serial implementation no matter the input size.
 
 \subsection{}
-We assume that a single partitioning step indicates one entire iteration of the \texttt{do-block} including counting and filtering. To test a single partitioning step we temporarily modify \texttt{quickCountItTask} to return after a single iteration. Table \ref{table:constn} depicts the running time per element for inputs of size $10^4$ with a varying number of threads for a single step. Here we see that on smaller input sizes, the overhead of using multiple threads becomes increasingly noticeable.
+We assume that a single partitioning step indicates means an entire iteration of the \texttt{do-block} including counting and filtering. To test a single partitioning step we temporarily modify \texttt{quickCountItTask} to return after a single iteration. Table \ref{table:constn} depicts the running time per element for inputs of size $10^4$ with a varying number of threads for a single step. Here we see that on smaller input sizes, the overhead of using multiple threads becomes increasingly noticeable.
 
 \begin{table}[ht!]
 \centering
@@ -175,7 +176,7 @@ Time: ns/element & 15.0 & 28.4 & 32.7 & 35.7 & 35.9 & 36.4 \\ \hline
 \label{table:constn}
 \end{table}
 
-Similarly we also try to pin the thread count to 4 and vary the input size. This is depicted in Table \ref{table:constt}. Here we see that with the pinned thread count, we seem to scale positively in the size of the input up until $10^6$. This makes sense in terms of the benefits of multithreading outweighing the overhead, when each thread gets a sufficiently large part of the input to work with.
+We now try to pin the thread count to 4 and vary the input size. This is depicted in Table \ref{table:constt}. Here we see that with the pinned thread count, we seem to scale positively in the size of the input up until around $10^6$. This makes sense in terms of the benefits of multithreading outweighing the overhead, when each thread gets a sufficiently large part of the input to work. Either way, our running time per element remains higher than we expect, so it may be that tweaks some tuning is needed for the implementation. This could for example be to try with thread local variables for the count step, to avoid superfluous synchronization among threads.
 
 \begin{table}[ht!]
 \centering
@@ -194,10 +195,10 @@ To make our implementation a hybrid, we declare a constant \texttt{CUTOFF} and a
 if (in.length <= CUTOFF) return quickCountIt(in);
 \end{lstlisting}
 
-This change does make \texttt{quickCountItTask} faster, but even as a hybrid, it is unable to beat the sequential version, meaning that it still remains best to use the sequential version. This finding may either be due to the overhead of thread synchronization, or that the parallelization could be implemented in a more thread-friendly way.
+This change does make \texttt{quickCountItTask} faster, but even as a hybrid, it is unable to beat the sequential version, meaning that it still remains best to use the sequential version on its own. This finding may either be due to the overhead of thread synchronization, or other implementation specific quirks.
 
 \section{Question 2}
-\subsection{}
+\subsection{}\label{sec:q21}
 \begin{lstlisting}
       (int) Arrays.stream(inp).skip(1).filter(i -> i < p).count();
 \end{lstlisting}
@@ -209,6 +210,7 @@ Skip the first element as this is the index of the partition element with which 
           Arrays.stream(inp).skip(1).filter(i -> i < p).toArray();
           Arrays.stream(inp).skip(1).filter(i -> i >= p).toArray();
 \end{lstlisting}
+Similar to section \ref{sec:q21} except now we get the output as an array of the filtered elements instead of the count.
 
 \subsection{}
 \begin{lstlisting}
@@ -221,9 +223,9 @@ public static int quickCountStream(int[] inp) {
         n=inp.length;
         count = (int) Arrays.stream(inp).skip(1).filter(i -> i < p).count();
         if (count == target) break;
-        if (count > target){
+        if (count > target)
             inp = Arrays.stream(inp).skip(1).filter(i -> i < p).toArray();
-        }else{
+        else {
             inp = Arrays.stream(inp).skip(1).filter(i -> i >= p).toArray();
             target=target-count-1;
         }
@@ -232,7 +234,8 @@ public static int quickCountStream(int[] inp) {
 }
 \end{lstlisting}
 
-Combining the two we get above implementation, which yields correct results.
+Combining the two we get above implementation, which we see yields correct results by comparing it 
+to the reference implementations for several instances.
 
 \subsection{}
 \begin{lstlisting}
@@ -240,7 +243,7 @@ Combining the two we get above implementation, which yields correct results.
     Arrays.stream(inp).parallel().skip(1).filter(i -> i < p).toArray();
     Arrays.stream(inp).parallel().skip(1).filter(i -> i >= p).toArray();
 \end{lstlisting}
-Here we simply throw \texttt{.parallel()} onto the pipelines from before.
+Here we simply throw \texttt{.parallel()} onto the start of our pipelines from before.
 
 \subsection{}
 
@@ -269,16 +272,16 @@ public static int quickCountStream(int[] inp) {
     return partition; // we are on target
 }
 \end{lstlisting}
-To avoid having to constantly do boxing, since Collectors does not work with primitives,
-we start off by converting our \texttt([] inp) to \texttt{List<Integer>}.
+To avoid having to constantly do boxing, since Collectors do not work with primitives,
+we start off by converting our \texttt{int[]} to \texttt{List<Integer>}.
 
-The \texttt{partitioningBy} collector gives us a map of all with two entries.
+The \texttt{partitioningBy} collector gives us a map of with two \texttt{Boolean} keys.
 The \texttt{true} entry on line 12, holding all elements larger than our partition element, and false entry on line 13 holding
 all the elements larger than or equal to our partition element. The size of \texttt{smaller} now represents our \texttt{count}
 from before, and the remainder of the code is similar to the given code.
 
 \subsection{} 
-In Figure \ref{fig:graphq2} we have tested all implementations from Figure \ref{fig:graphq1} again, and added the hybrid implementation as well as the stream implementations. Here the \texttt{CUTOFF} for the parallel iterative \texttt{quickCount} is set to $10^4$. Based on these tests, it appears that every parallel implementation is slower than the serial \texttt{quickSelect} and the serial recursive and iterative \texttt{quickCount}. While this is perhaps somewhat surprising, we can deduce that we either need smarter ways of parallelizing the implementations, or that \texttt{quickCount} does not lend itself positively to parallelization on my machine, despite it being very reasonable to implement.
+In Figure \ref{fig:graphq2} we have tested all implementations from Figure \ref{fig:graphq1} again, and added the hybrid implementation as well as the stream based implementations. Here the \texttt{CUTOFF} for the parallel iterative \texttt{quickCount} is set to $10^4$. Based on these tests, it appears that every parallel implementation is slower than the serial \texttt{quickSelect} and the serial recursive and iterative \texttt{quickCount}. While this is perhaps somewhat surprising, we can deduce that we either need smarter ways of parallelizing the implementations, or that \texttt{quickCount} does not lend itself positively to parallelization on my machine, despite it being very reasonable to implement.
 \begin{figure}[ht!]
     \centering
     \noindent\includegraphics[scale=0.45]{res/graph_q2.png}
@@ -305,11 +308,12 @@ union(1,0)
 Above example when executed in parallel may lead to the first call grabbing the lock on \texttt{nodes[0]}, the second call grabbing the lock on \texttt{nodes[1]} and both calls thereafter waiting to get the lock on the node that their counterpart already grabbed.
 
 \subsection{}
-We modify the given \texttt{concurrent()} method in class \texttt{UnionFindTest} in file \texttt{MyUnionFind.java} to target the issue we identified in 4.1.
+We modify the given \texttt{concurrent()} method in class \texttt{UnionFindTest} in file \texttt{MyUnionFind.java} to target the issue identified in 4.1.
 \begin{lstlisting}
 public void deadlock(final int size, final UnionFind uf) throws Exception {
     final int[] numbers = new int[size];
     for (int i = 0; i < numbers.length; ++i) numbers[i] = i;
+    // Populate threads
     final int threadCount = 32;
     final CyclicBarrier startBarrier = new CyclicBarrier(threadCount+1), 
           stopBarrier = startBarrier;
@@ -318,14 +322,10 @@ public void deadlock(final int size, final UnionFind uf) throws Exception {
         final boolean reverse = i%2==0;
         Thread ti = new Thread(new Runnable() { public void run() {
             try { startBarrier.await(); } catch (Exception exn) { }
-            if (reverse)
                 for (int j=0; j<100; j++)
                     for (int i = 0; i < numbers.length - 1; ++i) 
-                        uf.union(numbers[i], numbers[i + 1]);
-            else 
-                for (int j=0; j<100; j++)
-                    for (int i = 0; i < numbers.length - 1; ++i) 
-                        uf.union(numbers[i + 1], numbers[i]);
+                        if (reverse) uf.union(numbers[i + 1], numbers[i]);
+                        else uf.union(numbers[i], numbers[i + 1]);
             try { stopBarrier.await(); } catch (Exception exn) { }
         }});
         ti.start();
@@ -333,14 +333,13 @@ public void deadlock(final int size, final UnionFind uf) throws Exception {
     startBarrier.await();
     stopBarrier.await();
     final int root = uf.find(0);
-    for (int i : numbers) {
+    for (int i : numbers) 
         assertEquals(uf.find(i), root);
-    }
     System.out.println("No deadlocks");
 }
 \end{lstlisting}
 
-As seen from line 10 to 20, half the threads will now be attempting to union nodes in reverse order of the other half.
+As seen on line 15 and 16, half the threads will now be attempting to union nodes in the reverse order of the other half.
 From my tests, calling the above defined \texttt{deadlock} method with parameters shown below, deadlocked every time.
 
 \begin{lstlisting}
@@ -349,13 +348,13 @@ test.deadlock(itemCount, new BogusFineUnionFind(10_000));
 \end{lstlisting}
 
 By merely adding a check to the given \texttt{union()} method in class \texttt{BogusFineUnionFind} to ensure we always lock the lowest entry of the \texttt{nodes} array first, the deadlock test
-executes without deadlocking.
+executes without deadlocking. This is exactly what is done in the class \texttt{FineUnionFind} from the same file, which passes all tests.
 
 \section{Question 5}
 \textbf{Specifications}:
 \begin{enumerate}
-\item pop returns an inserted item or the value null. It might block until another concurrent operation completes, but it will return without delay if no other operation is happening simultaneously. In particular, it will not block until another thread inserts some element.
-\item for each element that is pushed, there is at most one pop operation that returns that element.
+\item Pop returns an inserted item or the value null. It might block until another concurrent operation completes, but it will return without delay if no other operation is happening simultaneously. In particular, it will not block until another thread inserts some element.
+\item For each element that is pushed, there is at most one pop operation that returns that element.
 \item If there are no further concurrent operations, pop will succeed (i.e. return a non-null value) if so far there
 have been more successful push than pop operations.
 \item If processor A pushed two elements x and y in this order, and processor B pops both elements, then this
@@ -366,8 +365,8 @@ happens in reverse order. (There is no further constraint on ordering).
 \begin{lstlisting}
 import java.util.LinkedList;
 public class MyStack<T> {
-    private Object lock;
-    private LinkedList<T> stack;
+    private final Object lock;
+    private final LinkedList<T> stack;
 
     public MyStack(){
         lock = new Object();
@@ -391,7 +390,7 @@ public class MyStack<T> {
 Above generic implementation utilizes that Java's \texttt{LinkedList} ships with \texttt{push} and \texttt{pop}.
 Alternatively we could use the combination \texttt{addLast} and \texttt{removeLast} or \texttt{addFirst} and \texttt{removeFirst} of which the second pair by Java's documentation is equivalent to \texttt{push} and \texttt{pop}\footnote{https://docs.oracle.com/javase/7/docs/api/java/util/LinkedList.html}. 
 In \texttt{pop}, given that the specification states that we should return null if the list is empty, we use \texttt{peek} to check if there is a first element, if there isn't return null, otherwise \texttt{pop}.
-The locking could also be done implicitly on \texttt{this} by marking the methods as synchronized, but here we use an explicit global lock object as it seems more in line with specification number 1.
+The locking could also be done implicitly on \texttt{this} by marking the methods as synchronized, but here we use an explicit global lock \texttt{Object} as it seems more in line with specification number 1.
 
 \subsection{}
 Given the initially stated  specifications, below are added bullet points (letters) matching specifications, describing why the implementation from \ref{sec:mystacksimple} is sufficient.
@@ -404,12 +403,12 @@ Given the initially stated  specifications, below are added bullet points (lette
     \end{enumerate}
 \item
     \begin{enumerate}
-        \item Given that \texttt{pop} removes the single first element, and \texttt{push} only adds the element once, \texttt{pop} may only return an element pushed once.
-        \item Furthermore, since we are using a single lock, everything happens sequentially, removing any chance of reading off an element that was removed in a different thread.
+        \item Given that \texttt{pop} removes the single first element, and \texttt{push} only adds the element once, \texttt{pop} an element pushed once cannot be popped twice.
+        \item To set previous point in stone, since we are using a global single lock, everything happens sequentially, removing any chance of reading off an element that was removed in a different thread.
     \end{enumerate}
 \item
     \begin{enumerate}
-        \item Same as 2.a.
+        \item Implied by 2.a.
     \end{enumerate}
 \item 
     \begin{enumerate}
@@ -422,7 +421,7 @@ Given the initially stated  specifications, below are added bullet points (lette
 
 \subsection{}
 \subsubsection{Concurrency}
-To test for everything except reverse ordering, we define the below shown test \texttt{concurrentTest}.
+To test for everything except reverse ordering (specification 4), we define the below shown test \texttt{concurrentTest}.
 \begin{lstlisting}
 public static void concurrentTest(final int size, final int threads,  
         MyStack<Integer> stack) throws Exception {
@@ -472,11 +471,11 @@ When all the threads are ready, we call \texttt{startBarrier.await()} on line 17
 to wait for all of them to finish pushing. 
 
 We now divide the work similarly for popping threads. For each number they pop, we add it to the \texttt{ConcurrentHashMap} backed \texttt{Set} defined on line 22. 
-When all threads are done popping, we can check whether the size of our \texttt{Set} is equal to the number of items we tried to add. 
+When all threads are done popping, we can check whether the size of our \texttt{Set} is equal to the number of items we initially added to the \texttt{Stack}.
 Since there are no duplicates in a \texttt{Set}, and we only pushed unique numbers, if these are equal we can with reasonably confidence say that our implementation is working.
 
 \textbf{Scaling:} In terms of scaling, since MyStack functions entirely sequentially, it scales poorly with multiple threads. In fact, the more threads we use, the more time will be spent 
-locking and waiting for locks, making it slower and slower. In table \ref{table:concTest} behavior is illustrated.
+locking and waiting for locks, making it slower and slower. In table \ref{table:concTest} this behavior is illustrated.
 
 \begin{table}[ht!]
 \centering
@@ -485,11 +484,11 @@ locking and waiting for locks, making it slower and slower. In table \ref{table:
 Threads & 1 & 2 & 4 & 8 & 16 & 32 \\ \hline
 Time (sec) & 7.363 & 8.159 & 8.203 & 8.413 & 10.071 & 10.832 \\ \hline
 \end{tabular}
-\caption{Test times for conccurentTest with size $10^7$}
+\caption{Test times for concurrentTest with \texttt{size} $10^7$}
 \label{table:concTest}
 \end{table}
 \subsubsection{Ordering} \label{sec:ordering}
-To test that order works for multiple threads, we push number $[0..n]$ onto the stack from thread A, and pop \texttt{n} items off the stack from thread B,
+To test that order works for multiple threads, we push numbers $[0..n]$ onto the stack from thread A, and pop \texttt{n} items off the stack from thread B,
 checking that these are the numbers $[n..0]$.
 This is shown below in method \texttt{testOrder}.
 
@@ -514,10 +513,10 @@ public static void testOrder(int n, MyStack<Integer> stack){
 }
 \end{lstlisting}
 
-This behaviour was untested in \texttt{concurrentTest}, so a separate straight forward test to clear this up was needed.
+This behaviour was untested in \texttt{concurrentTest}, so a separate straight forward test to clear this up was needed, since specification number 4 was clear about this behavior.
 
 \subsection{}\label{sec:striping}
-Below is shown an implementation using striping, with a total of 32 stripes. To determine the stripe use \texttt{Thread.currentThread()hashCode()\%STRIPES)}
+Below is shown an implementation using striping, with a total of 32 stripes. To determine the stripe to use for a method call, we use \texttt{Thread.currentThread()hashCode()\%STRIPES)}
 as shown on line 16 and 24. We use an \texttt{ArrayList} to store our \texttt{LinkedList}s since we cannot create arrays of 
 parameterized types\footnote{https://docs.oracle.com/javase/tutorial/java/generics/restrictions.html\#createArrays}.
 
@@ -561,12 +560,11 @@ public class MyStack<T> {
 \end{lstlisting}
 
 \subsection{}
-With the new striping such that we are actually running concurrently we see improved performance in our tests.
-The fastest execution, as seen in table \ref{table:striping} was with 16 threads where it ran in 5.866 seconds. This is in contrast
+With the new striping allowing actually run in parallel, we see that performance improved in our tests.
+The fastest new execution, as seen in table \ref{table:striping}, was with 16 threads where it ran in 5.866 seconds. This is in contrast
 to the single threaded execution from table \ref{table:concTest} that ran in 7.363 seconds with a single thread. Considering that we have
 4 physical cores available, this is not that big of a performance improvement. This could be due to many threads hashing to the same stripe or
 due to the added iteration through all the stacks when we run into an empty one.
-
 
 \begin{table}[ht!]
 \centering
@@ -606,14 +604,14 @@ The code described in section \ref{sec:ordering} detects this issue and outputs 
 \subsection{}
 The given code has the flaw that it allows multiple threads to get into the else block before anyone changes the \texttt{state}.
 This means that in an example with thread \texttt{A} calling \texttt{consensus(x)} and thread \texttt{B} calling \texttt{consensus(y)}, both may retrieve return values
-indicating that parameter value \texttt{x} or \texttt{y} is the consensus, whereas only one of them will be stored in \texttt{state}. Hence we have a race condition.
+indicating that parameter value \texttt{x} or \texttt{y} is the consensus, whereas only one of them will be equal to \texttt{state}. Hence we have a race condition.
 
 \subsection{}
-Using synchronization on some lock, in this case on \texttt{this}, has a problem with termination. If one process is to fail while holding the lock, or fall asleep for an extended amount of time,
+Using synchronization on some lock, in this case on \texttt{this}, has a problem with termination. If one process crashes while holding the lock, or falls asleep for an extended amount of time,
 the whole system will halt as they wait to retrieve the lock. As such, this implementation is not fault tolerant.
 
 \subsection{}
-Firstly, assuming that we're talking Java, this would fail to type-check, as we're returning an \texttt{AtomicInteger} from a method that supposedly returns an \texttt{int} and there is no implicit conversion from \texttt{AtomicInteger} to \texttt{int}. Even with this fixed, it would still fail, since two threads may enter the while loop before state changes, causing one of them to be stuck in the loop forever, since \texttt{state.compareAndSet(-1,x)} will then be returning false over and over. This will work if only one thread ever gets to enter the while loop and successfully \texttt{compareAndSet}s the \texttt{state}, since all other threads then merely get the value of the state, leading to consensus.
+Firstly, assuming that we are talking Java, this would fail to type-check, as we are returning an \texttt{AtomicInteger} from a method that supposedly returns an \texttt{int} and there is no implicit conversion from \texttt{AtomicInteger} to \texttt{int}. Even with this fixed, it would still fail, since two threads may enter the while loop before state changes, causing one of them to be stuck in the loop forever, since \texttt{state.compareAndSet(-1,x)} will then be returning false over and over. This will work if only one thread ever gets to enter the while loop and successfully \texttt{compareAndSet}s the \texttt{state}, since all other subsequent threads then merely get the value of the state, leading to consensus.
 
 \section{Question 7}
 \subsection{}
@@ -621,6 +619,7 @@ Implementation found in appendix section \ref{sec:akka}.
 
 \subsection{}
 Below is shown the output of three distinct runs of the Secure Communication System with Java+Akka.
+This assumes that distinct means differing key pairs and thereby varying encrypted texts.
 \begin{verbatim}
 $ java -cp scala.jar:akka-actor.jar:akka-config.jar:. SecComSys
 public key: 18
@@ -645,13 +644,13 @@ decrypted: 'SECRET'
 \end{verbatim}
 
 \section{Appendix}
+\subsection{SecComSys.java}\label{sec:akka}
+\lstinputlisting{../src/Erlang/SecComSys.java}
 \subsection{TestQuickSelect.java}
 \lstinputlisting{../src/QuickSelect/TestQuickSelect.java}
 \subsection{MyUnionFind.java}
 \lstinputlisting{../src/UnionFind/MyUnionFind.java}
 \subsection{MyStack.java}
 \lstinputlisting{../src/Stack/MyStack.java}
-\subsection{SecComSys.java}\label{sec:akka}
-\lstinputlisting{../src/Erlang/SecComSys.java}
 
 \end{document}

@@ -5,8 +5,13 @@ import java.util.*;
 public class MyUnionFind {
     public static void main(String[] args) throws Exception {
         final int itemCount = 10_000;
-        // Question 4.3
-        {
+        {   // Example of a working execution
+            UnionFindTest test = new UnionFindTest();
+            test.sequential(new FineUnionFind(5));
+            test.concurrent(itemCount, new FineUnionFind(itemCount));
+            test.deadlock(itemCount, new FineUnionFind(itemCount));
+        }
+        {   // Question 4.3
             UnionFindTest test = new UnionFindTest();
             test.sequential(new BogusFineUnionFind(5));
             test.concurrent(itemCount, new BogusFineUnionFind(itemCount));
@@ -61,14 +66,10 @@ class UnionFindTest extends Tests {
             final boolean reverse = i%2==0;
             Thread ti = new Thread(new Runnable() { public void run() {
                 try { startBarrier.await(); } catch (Exception exn) { }
-                if (reverse)
                     for (int j=0; j<100; j++)
                         for (int i = 0; i < numbers.length - 1; ++i) 
-                            uf.union(numbers[i], numbers[i + 1]);
-                else 
-                    for (int j=0; j<100; j++)
-                        for (int i = 0; i < numbers.length - 1; ++i) 
-                            uf.union(numbers[i + 1], numbers[i]);
+                            if (reverse) uf.union(numbers[i + 1], numbers[i]);
+                            else uf.union(numbers[i], numbers[i + 1]);
                 try { stopBarrier.await(); } catch (Exception exn) { }
             }});
             ti.start();
@@ -76,9 +77,8 @@ class UnionFindTest extends Tests {
         startBarrier.await();
         stopBarrier.await();
         final int root = uf.find(0);
-        for (int i : numbers) {
+        for (int i : numbers) 
             assertEquals(uf.find(i), root);
-        }
         System.out.println("No deadlocks");
     }
 
@@ -104,9 +104,8 @@ class UnionFindTest extends Tests {
         startBarrier.await();
         stopBarrier.await();
         final int root = uf.find(0);
-        for (int i : numbers) {
+        for (int i : numbers)
             assertEquals(uf.find(i), root);
-        }
         System.out.println("passed");
     }
 }
@@ -259,7 +258,6 @@ class BogusFineUnionFind implements UnionFind {
 
     class Node {
         private volatile int next, rank;
-
         public Node(int next) {
             this.next = next;
         }
