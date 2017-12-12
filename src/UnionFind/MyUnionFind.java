@@ -1,14 +1,3 @@
-// For week 12
-// sestoft@itu.dk * 2014-11-20
-
-// Some implementations of parallel union-find.  See Berman: Multicore
-// programming in the face of metamorphosis: union-find as an example,
-// MSc thesis, Tel-Aviv University 2010; Anderson and Woll: Wait-free
-// parallel algorithms for the union-find problem, 23rd ACM STOC,
-// 1991; and Florian Biermann: Connected set filtering on shared
-// memory multiprocessors, MSc thesis, IT University of Copenhagen,
-// June 2014.
-
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 
@@ -23,19 +12,9 @@ public class MyUnionFind {
         final int itemCount = 10_000;
         {
             UnionFindTest test = new UnionFindTest();
-            test.sequential(new CoarseUnionFind(5));
-            test.concurrent(itemCount, new CoarseUnionFind(itemCount));
-        }
-        {
-            UnionFindTest test = new UnionFindTest();
             test.sequential(new FineUnionFind(5));
             test.concurrent(itemCount, new FineUnionFind(itemCount));
             test.deadlock(itemCount, new FineUnionFind(itemCount));
-        }
-        {
-            UnionFindTest test = new UnionFindTest();
-            test.sequential(new WaitFreeUnionFind(5));
-            test.concurrent(itemCount, new WaitFreeUnionFind(itemCount));
         }
         // Question 4.3
         {
@@ -155,54 +134,6 @@ class Tests {
             throw new Exception(String.format("ERROR: assertTrue"));
     }
 }
-
-// Coarse-locking union-find.  All operations lock on the entire data
-// structure.
-
-class CoarseUnionFind implements UnionFind {
-    private final Node[] nodes;
-
-    public CoarseUnionFind(int count) {
-        this.nodes = new Node[count];
-        for (int x=0; x<count; x++)
-            nodes[x] = new Node(x);
-    }
-
-    public synchronized int find(int x) {
-        while (nodes[x].next != x) {
-            final int t = nodes[x].next, u = nodes[t].next;
-            nodes[x].next = u;
-            x = u;
-        }
-        return x;
-    }
-
-    public synchronized void union(int x, int y) {
-        int rx = find(x), ry = find(y);
-        if (rx == ry)
-            return;
-        if (nodes[rx].rank > nodes[ry].rank) {
-            int tmp = rx; rx = ry; ry = tmp;
-        }
-        // Now nodes[rx].rank <= nodes[ry].rank
-        nodes[rx].next = ry;
-        if (nodes[rx].rank == nodes[ry].rank)
-            nodes[ry].rank++;
-    }
-
-    public synchronized boolean sameSet(int x, int y) {
-        return find(x) == find(y);
-    }
-
-    class Node {
-        private int next, rank;
-
-        public Node(int next) {
-            this.next = next;
-        }
-    }
-}
-
 // Fine-locking union-find.  Union and sameset lock on the intrinsic
 // locks of the two root Nodes involved.  Find is wait-free, takes no
 // locks, and performs no compression.  
@@ -344,88 +275,6 @@ class BogusFineUnionFind implements UnionFind {
 
         public Node(int next) {
             this.next = next;
-        }
-    }
-}
-
-
-// Wait-free CAS-based union-find, a la Anderson and Woll.
-
-class WaitFreeUnionFind implements UnionFind {
-    private final AtomicReferenceArray<Node> nodes;
-
-    public WaitFreeUnionFind(int count) {
-        this.nodes = new AtomicReferenceArray<Node>(count);
-        for (int x=0; x<count; x++)
-            nodes.set(x, new Node(x, 0));
-    }
-
-    private boolean updateRoot(int x, int oldRank, int y, int newRank) {
-        final Node oldNode = nodes.get(x);
-        if (oldNode.next.get() != x || oldNode.rank != oldRank)
-            return false;
-        Node newNode = new Node(y, newRank);
-        return nodes.compareAndSet(x, oldNode, newNode);
-    }
-
-    public int find(int x) {
-        while (nodes.get(x).next.get() != x) {
-            final int t = nodes.get(x).next.get(), 
-                  u = nodes.get(t).next.get();
-            nodes.get(x).next.compareAndSet(t, u);
-            x = u;
-        }
-        return x;
-    }
-
-    public void union(int x, int y) {
-        int xr, yr;
-        do {
-            x = find(x); 
-            y = find(y);
-            if (x == y)
-                return;
-            xr = nodes.get(x).rank;
-            yr = nodes.get(y).rank;
-            if (xr > yr || xr == yr && x > y) {
-                { int tmp = x; x = y; y = tmp; }
-                { int tmp = xr; xr = yr; yr = tmp; }
-            }
-        } while (!updateRoot(x, xr, y, xr));
-        if (xr == yr) 
-            updateRoot(y, yr, y, yr+1);
-        setRoot(x);    
-    }
-
-    private void setRoot(int x) {
-        int y = x;
-        while (y != nodes.get(y).next.get()) {
-            final int t = nodes.get(y).next.get(),
-                  u = nodes.get(t).next.get();
-            nodes.get(y).next.compareAndSet(t, u);
-            y = u;
-        }
-        updateRoot(y, nodes.get(x).rank, y, nodes.get(x).rank + 1);
-    }
-
-
-    public boolean sameSet(int x, int y) {
-        do {
-            x = find(x);
-            y = find(y);
-            if (x == y) 
-                return true;
-        } while (nodes.get(x).next.get() != x);
-        return false;
-    }
-
-    class Node {
-        private final AtomicInteger next;
-        private final int rank;
-
-        public Node(int next, int rank) {
-            this.next = new AtomicInteger(next);
-            this.rank = rank;
         }
     }
 }

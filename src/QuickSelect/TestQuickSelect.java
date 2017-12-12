@@ -1,4 +1,3 @@
-
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Random;
@@ -16,7 +15,6 @@ import java.util.function.Function;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.*;
 import java.util.function.BiFunction;
-
 
 class TestQuickSelect {
     public static int medianSort(int[] inp) {
@@ -137,9 +135,11 @@ class TestQuickSelect {
     }
 
     static ExecutorService executor = Executors.newWorkStealingPool();
+    final static int CUTOFF = 10_000;
     public static int quickCountItTask(int[] in) {
         int target = in.length/2;
         do {
+            if (in.length <= CUTOFF) return quickCountIt(in);
             final AtomicInteger count = new AtomicInteger(0);
             final int[] inp = in;
             final int n = inp.length, p = inp[0];
@@ -174,7 +174,7 @@ class TestQuickSelect {
         } while( true );
     }
 
-    public static int quickCountStream(int[] inp) {
+    public static int quickCountStreamP(int[] inp) {
         int partition=-1;
         int target = inp.length/2;
         // Since we have to be working with boxed Integers. We start off by converting.
@@ -183,6 +183,30 @@ class TestQuickSelect {
             partition = list.get(0);
             final Integer p = partition;
             Map<Boolean, List<Integer>> res = list.stream().skip(1).parallel()
+                .collect(Collectors.partitioningBy(i -> i < p));
+
+            List<Integer> smaller = res.get(true);
+            List<Integer> bigger = res.get(false);
+
+            if (smaller.size() == target) break;
+            if (smaller.size() > target) list = smaller;
+            else {
+                target=target-smaller.size()-1;
+                list = bigger;
+            }
+        } while( true );
+        return partition; // we are on target
+    }
+
+    public static int quickCountStream(int[] inp) {
+        int partition=-1;
+        int target = inp.length/2;
+        // Since we have to be working with boxed Integers. We start off by converting.
+        List<Integer> list = Arrays.stream(inp).boxed().collect(Collectors.toList());
+        do {
+            partition = list.get(0);
+            final Integer p = partition;
+            Map<Boolean, List<Integer>> res = list.stream().skip(1)
                 .collect(Collectors.partitioningBy(i -> i < p));
 
             List<Integer> smaller = res.get(true);
@@ -227,14 +251,14 @@ class TestQuickSelect {
         //    System.exit(0);
         int[] testArray = new int[]{9,2,4,3,5,7,1,8,9,6};
         double d=0.0;
-        // d += Mark9("serial sort", a.length, x -> medianSort(a));
-        // d += Mark9("parall sort", a.length, x -> medianPSort(a));
-        // d += Mark9("serial qsel", a.length, x -> quickSelect(a));
-        // d += Mark9("ser countRc", a.length,x -> quickCountRec(a,a.length/2));
-
+        d += Mark9("serial sort", a.length, x -> medianSort(a));
+        d += Mark9("parall sort", a.length, x -> medianPSort(a));
+        d += Mark9("serial qsel", a.length, x -> quickSelect(a));
+        d += Mark9("ser countRc", a.length,x -> quickCountRec(a,a.length/2));
         d += Mark9("ser countIt", a.length,x -> quickCountIt(a));
         d += Mark9("par countIt", a.length,x -> quickCountItTask(a));
-        // d += Mark9("countStream", a.length,x -> quickCountStream(a));
+        d += Mark9("countStream", a.length,x -> quickCountStream(a));
+        d += Mark9("countStreamP", a.length,x -> quickCountStreamP(a));
         // d += Mark9("task countR", a.length,x -> quickCountRecTask(a,a.length/2));
         System.out.println(d);
     }
@@ -299,5 +323,4 @@ class TestQuickSelect {
         System.out.printf("# Date: %s%n", 
                 new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ").format(now));
     }
-
 }

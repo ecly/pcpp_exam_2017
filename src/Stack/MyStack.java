@@ -101,7 +101,7 @@ public class MyStack<T> {
         try {
             concurrentTest(size, threads, stack);
         } catch (Exception e){
-            System.out.println("Failed");
+            System.out.println("Concurrent test died >:(");
         }
         System.exit(0);
     }

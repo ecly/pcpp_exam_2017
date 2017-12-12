@@ -43,11 +43,9 @@
 \maketitle
 \textit{I hereby declare that I have answered thede exam questions myself without any outside help.}\\
 
-I will be using inline code snippets, but include full files in the appendix.
+Thoughout the report, I will be using inline code snippets, but include full files in the appendix. For all tests, the same machine will be used. Table \ref{table:sysinfo} contains the results of \texttt{SystemInfo}:
 
-Through all tests, the same machine will be used. Below are the results of \texttt{SystemInfo}:
-
-
+\par\noindent\rule{\textwidth}{0.4pt}
 \begin{table}[!ht]
 \begin{center}
 \begin{tabular}{ l l }
@@ -58,8 +56,9 @@ Date & 2017-12-11T09:20:13+0100
 \end{tabular}
 \end{center}
 \caption{System Info}
-\label{sysinfo}
+\label{table:sysinfo}
 \end{table}
+\par\noindent\rule{\textwidth}{0.4pt}
 \newpage
 
 \section{Question 1}
@@ -69,17 +68,16 @@ Seeing as we are interested in seeing how well each implementation performs on r
 \begin{figure}[!ht]
     \centering
     \noindent\includegraphics[scale=0.5]{res/graph_q1.png}
-    \caption{Plot of running times of given implementations. Tested with size = 10000000.}
+    \caption{Plot of running times of given implementations. Tested with input size $10^7$.}
     \label{fig:graphq1}
 \end{figure}
 
-From graph \ref{fig:graphq1} we see that, perhaps unsurprisingly, the serial quickselect and quickcount implementations beat out serial sort entirely.
+From Graph \ref{fig:graphq1} we see that, perhaps unsurprisingly, the serial \texttt{quickSelect} and \texttt{quickCount} implementations beat out serial sort entirely.
 We do however see parallel sort get rather close to the expected linear running time implementations, due to the test machine having a quad-core CPU,
-allowing an approximate 4 time speedup from the serial implementation. Between the expected linear running time algorithms, it seems serial quickselect 
-beat out its quickcount counterparts, however the difference is so small that we have yet to find a definitive winner.
+allowing an approximate 4 time speedup from the serial implementation. Between the expected linear running time algorithms, serial \texttt{quickSelect} beats out its \texttt{quickCount} counterparts. This may be due to \texttt{quickSelect} avoiding spending time allocating new memory, other than its initial copy.
 
 \subsection{}
-Below is shown a parallel quickCount implementation using tasks, where \texttt{quickCountItTask} is the main function, and \texttt{filter} is the auxiliary method
+Below is shown a parallel \texttt{quickCount} implementation using tasks, where \texttt{quickCountItTask} is the main function, and \texttt{filter} is the auxiliary method
 in which the parallel filtering is done. The filter method mainly serves to reduce code duplication as the original implementation is near identical
 for the filtering cases where we either have a too larger or a too small selected partition number.
 
@@ -161,11 +159,42 @@ Since the machine used for testing has 4 physical cores, this is the ideal amoun
     \label{fig:compTask}
 \end{figure}
 
-Perhaps in contrast to the expected outcome, \texttt{quickCountItTask} remains slower than \texttt{quickCountIt} even for large inputs. This can be due to how much it slows down on small inputs, with near $200ns/element$ for inputs of size 1000. Based on the Figure \ref{fig:compTask} it seems that it will not be able to catch up to the serial implementation no matter the input size.
+Perhaps in contrast to the expected outcome, \texttt{quickCountItTask} remains slower than \texttt{quickCountIt} even for large inputs. This can be due to how much it slows down on small inputs, with near $200ns/element$ for inputs of size $10^3$. Based on the Figure \ref{fig:compTask} it seems that it will not be able to catch up to the serial implementation no matter the input size.
 
 \subsection{}
-\subsection{TODO}
+We assume that a single partioning step indicates one entire iteration of the \texttt{do-block} including counting and filtering. To test a single partioning step we temporarily modify \texttt{quickCountItTask} to return after a single iteration. Table \ref{table:constn} depicts the running time per element for inputs of size $10^4$ with a varying number of threads for a single step. Here we see that on smaller input sizes, the overhead of using multiple threads becomes increasingly noticable.
 
+\begin{table}[ht!]
+\centering
+\begin{tabular}{|l|l|l|l|l|l|l|}
+\hline
+Threads          & 1    & 2    & 4    & 8    & 16   & 32   \\ \hline
+Time: ns/element & 15.0 & 28.4 & 32.7 & 35.7 & 35.9 & 36.4 \\ \hline
+\end{tabular}
+\caption{Running times per element for a single partitioning step in \texttt{quickCointItTask}, with input size $10^4$, and a varying thread count}
+\label{table:constn}
+\end{table}
+
+Similarly we also try to pin the thread count to 4 and vary the input size. This is depicted in Table \ref{table:constt}. Here we see that with the pinned thread count, we seem to scale positively in the size of the input up until $10^6$. This makes sense in terms of the benefits of multithreading outweighing the overhead, when each thread gets a sufficiently large part of the input to work with.
+
+\begin{table}[ht!]
+\centering
+\begin{tabular}{|l|l|l|l|l|l|l|}
+\hline
+Input size       & $10^3$ & $10^4$ & $10^5$ & $10^6$ & $10^7$ & $10^8$ \\ \hline
+Time: ns/element & 26.7 & 32.5  & 32.4   & 18.1    & 19.7     & 22.4      \\ \hline
+\end{tabular}
+\caption{Running times per element for a single partitioning step in \texttt{quickCointItTask}, with input size of thread count of 4 and varying input size}
+\label{table:constt}
+\end{table}
+
+\subsection{}
+To make our implementation a hybrid, we declare a constant \texttt{CUTOFF} and add the following line to the top of the \texttt{do-block} in \texttt{quickCountItTask}.
+\begin{lstlisting}
+if (in.length <= CUTOFF) return quickCountIt(in);
+\end{lstlisting}
+
+This change does make \texttt{quickCountItTask} faster, but even as a hybrid, it is unable to beat the sequential version, meaning that it still remains best to use the sequential version. This finding may either be due to the overhead of thread synchronization, or that the parallelization could be implemented in a more thread-friendly way.
 
 \section{Question 2}
 \subsection{}
@@ -193,9 +222,9 @@ public static int quickCountStream(int[] inp) {
         count = (int) Arrays.stream(inp).skip(1).filter(i -> i < p).count();
         if (count == target) break;
         if (count > target){
-            inp = Arrays.stream(inp).skip(1).parallel.()filter(i -> i < p).toArray();
+            inp = Arrays.stream(inp).skip(1).filter(i -> i < p).toArray();
         }else{
-            inp = Arrays.stream(inp).skip(1).parallel().filter(i -> i >= p).toArray();
+            inp = Arrays.stream(inp).skip(1).filter(i -> i >= p).toArray();
             target=target-count-1;
         }
     } while( true );
@@ -248,15 +277,23 @@ The \texttt{true} entry on line 12, holding all elements larger than our partiti
 all the elements larger than or equal to our partition element. The size of \texttt{smaller} now represents our \texttt{count}
 from before, and the remainder of the code is similar to the given code.
 
-\subsection{TODO} 
+\subsection{} 
+In Figure \ref{fig:graphq2} we have tested all implementations from Figure \ref{fig:graphq1} again, and added the hybrid implementation as well as the stream implementations. Here the \texttt{CUTOFF} for the parallel iterative \texttt{quickCount} is set to $10^4$. Based on these tests, it appears that every parallel implementation is slower than the serial \texttt{quickSelect} and the serial recursive and iterative \texttt{quickCount}. While this is perhaps somewhat surprising, we can deduce that we either need smarter ways of parallelizing the implementations, or that \texttt{quickCount} does not lend itself positively to parallelization on my machine, despite it being very reasonable to implement.
+\begin{figure}[ht!]
+    \centering
+    \noindent\includegraphics[scale=0.45]{res/graph_q2.png}
+    \caption{Plot of running times including parallel iterative and stream based. Tested with input size $10^7$.}
+    \label{fig:graphq2}
+\end{figure}
 
-\section{Question 3 - TODO}
-By initially deciding what ranges threads will work on for the entire algorithm, we risk a thread winding up
-with a range of the input that we can discard as useless after a single iteration. 
+\section{Question 3}
+\subsection{CPU pinning:} If we assume that the total number of threads is equal to the number of cores on the machine of execution, CPU pinning can be advantageous if the program gets all of the machine's CPU time, and the list is evenly partitioned between threads. In these specific conditions, not having to schedule threads may be beneficial as these conditions should cause various threads to finish their iteration's work simultaneously. On the other hand, if the input is not evenly distributed and the system is using resources on other tasks as well, one partition may end up being poorly scheduled on a core with less free CPU time than one of the other available cores. Another benefit of thread pinning, which may be more significant, is that this will allow the threads to keep most of the relevant values in their designated cores' L1 cache, leading to less cache misses\footnote{https://en.wikipedia.org/wiki/CPU\_cache\#Cache\_miss}. This benefit may even extend to L2 cache for some CPUs\footnote{https://en.wikipedia.org/wiki/CPU\_cache#Cache\_hierarchy\_in\_a\_modern\_processor}.
+\subsection{Load balancing:}
+By having each thread own certain data ranges, we may end up with several threads having nothing or very little to do after few iterations. For example, if the input is near sorted and we assign threads consecutive ranges, some threads may up filtering out all their elements in the first iteration depending on the selected pivot.
 
 \section{Question 4}
 \subsection{}
-We are not guaranteed to always grab locks in the same order, hence we are prone to dead-locks.
+Since \texttt{x} and \texttt{y} are parameters, we are not guaranteed to always grab locks in the same order, hence we are prone to dead-locks.
 
 \subsection{}
 
@@ -317,9 +354,7 @@ executes without deadlocking.
 \section{Question 5}
 \textbf{Specifications}:
 \begin{enumerate}
-\item pop returns an inserted item or the value null. It might block until another concurrent operation completes,
-but it will return without delay if no other operation is happening simultaneously. In particular, it will not
-block until another thread inserts some element.
+\item pop returns an inserted item or the value null. It might block until another concurrent operation completes, but it will return without delay if no other operation is happening simultaneously. In particular, it will not block until another thread inserts some element.
 \item for each element that is pushed, there is at most one pop operation that returns that element.
 \item If there are no further concurrent operations, pop will succeed (i.e. return a non-null value) if so far there
 have been more successful push than pop operations.
@@ -354,10 +389,9 @@ public class MyStack<T> {
 \end{lstlisting}
 
 Above generic implementation utilizes that Java's \texttt{LinkedList} ships with \texttt{push} and \texttt{pop}.
-Alternatively we could use the combination \texttt{addLast} and \texttt{removeLast} or \texttt{addFirst} and \texttt{removeFirst} 
-of which the second pair by Java's documentation is equivalent to \texttt{push} and \texttt{pop}\footnote{https://docs.oracle.com/javase/7/docs/api/java/util/LinkedList.html}. 
+Alternatively we could use the combination \texttt{addLast} and \texttt{removeLast} or \texttt{addFirst} and \texttt{removeFirst} of which the second pair by Java's documentation is equivalent to \texttt{push} and \texttt{pop}\footnote{https://docs.oracle.com/javase/7/docs/api/java/util/LinkedList.html}. 
 In \texttt{pop}, given that the specification states that we should return null if the list is empty, we use \texttt{peek} to check if there is a first element, if there isn't return null, otherwise \texttt{pop}.
-The locking could also be done implicitly on \texttt{this} by marking the methods as synchronized, but here we use an explicit lock object as it seems more in line with specification number 1.
+The locking could also be done implicitly on \texttt{this} by marking the methods as synchronized, but here we use an explicit global lock object as it seems more in line with specification number 1.
 
 \subsection{}
 Given the initially stated  specifications, below are added bullet points (letters) matching specifications, describing why the implementation from \ref{sec:mystacksimple} is sufficient.
@@ -431,7 +465,7 @@ public static void concurrentTest(final int size, final int threads,
 }
 \end{lstlisting}
 
-We create \texttt{CyclicBarrier}s on line 3, which we use to ensure that our threads are working simultaenously. 
+We create \texttt{CyclicBarrier}s on line 3, which we use to ensure that our threads are working simultaneously. 
 We then assign different threads ranges between 0 and \texttt{size} in which they will push all numbers to the stack.
 
 When all the threads are ready, we call \texttt{startBarrier.await()} on line 17 to start the pushing and \texttt{stopBarrier.await()} on the next line
@@ -451,7 +485,7 @@ locking and waiting for locks, making it slower and slower. In table \ref{table:
 Threads & 1 & 2 & 4 & 8 & 16 & 32 \\ \hline
 Time (sec) & 7.363 & 8.159 & 8.203 & 8.413 & 10.071 & 10.832 \\ \hline
 \end{tabular}
-\caption{Test times for conccurentTest with size 10,000,000}
+\caption{Test times for conccurentTest with size $10^7$}
 \label{table:concTest}
 \end{table}
 \subsubsection{Ordering} \label{sec:ordering}
@@ -541,7 +575,7 @@ due to the added iteration through all the stacks when we run into an empty one.
 Threads & 1 & 2 & 4 & 8 & 16 & 32 \\ \hline
 Time (sec) & 8.016 & 7.473 & 7.465 & 6.313 & 5.866 & 7.337 \\ \hline
 \end{tabular}
-\caption{Test times for MyStack with striping for conccurentTest with size 10,000,000}
+\caption{Test times for MyStack with striping for conccurentTest with size $10^7$}
 \label{table:striping}
 \end{table}
 
@@ -611,6 +645,10 @@ decrypted: 'SECRET'
 \end{verbatim}
 
 \section{Appendix}
+\subsection{TestQuickSelect.java}
+\lstinputlisting{../src/QuickSelect/TestQuickSelect.java}
+\subsection{MyUnionFind.java}
+\lstinputlisting{../src/UnionFind/MyUnionFind.java}
 \subsection{MyStack.java}
 \lstinputlisting{../src/Stack/MyStack.java}
 \subsection{SecComSys.java}\label{sec:akka}
