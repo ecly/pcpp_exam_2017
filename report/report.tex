@@ -41,9 +41,9 @@
 \newpage
 
 \maketitle
-\textit{I hereby declare that I have answered thede exam questions myself without any outside help.}\\
+\textit{I hereby declare that I have answered the exam questions myself without any outside help.}\\
 
-Thoughout the report, I will be using inline code snippets, but include full files in the appendix. For all tests, the same machine will be used. Table \ref{table:sysinfo} contains the results of \texttt{SystemInfo}:
+Throughout the report, I will be using inline code snippets, but include full files in the appendix. For all tests, the same machine will be used. Table \ref{table:sysinfo} contains the results of \texttt{SystemInfo}:
 
 \par\noindent\rule{\textwidth}{0.4pt}
 \begin{table}[!ht]
@@ -82,12 +82,12 @@ in which the parallel filtering is done. The filter method mainly serves to redu
 for the filtering cases where we either have a too larger or a too small selected partition number.
 
 To allow multiple tasks to safely increment \texttt{count}, we use a \texttt{final AtomicInteger} on line 28. In general for each iteration, all variables that we need to access
-from within the threads are made final, as we get compile errors otherwise. For task partitioning, we try to split up the input array in even intervals skipping the partition element. For undivisible numbers,
+from within the threads are made final, as we get compile errors otherwise. For task partitioning, we try to split up the input array in even intervals skipping the partition element. For indivisible numbers,
 we give the leftovers to the last created task. This can slow us down a little bit, since one task may end up doing more work than the others. In \texttt{filter} we take the same
 approach to partitioning, and now use an \texttt{AtomicInteger} on line 8, to safely keep track of what index in the new array \texttt{m} we want to insert the next value in. This ensures that
 we never try to write to the same index of \texttt{m} twice.
 
-Other than these parallization measures, the overall structure of \texttt{quickCountItTask} is similar to that of the given \texttt{quickCountTask}.
+Other than these parallelization measures, the overall structure of \texttt{quickCountItTask} is similar to that of the given \texttt{quickCountTask}.
 
 \begin{lstlisting}
 // Takes an arr, a partition, the size of the output array and a BiFunction,
@@ -125,7 +125,7 @@ public static int quickCountItTask(int[] in) {
         ArrayList<Callable<Void>> counters = new ArrayList<>();
         for(int i=0;i<threadCount;i++) {
             final int from = i==0 ? 1 : i*step; //skip pivot
-            //for undivisible numbers, just let the last thread take a larger chunk
+            //for indivisible numbers, just let the last thread take a larger chunk
             final int to = i==threadCount-1 ? inp.length : i*step+step;
             counters.add(() -> {
                 for(int j = from; j<to; j++)
@@ -162,7 +162,7 @@ Since the machine used for testing has 4 physical cores, this is the ideal amoun
 Perhaps in contrast to the expected outcome, \texttt{quickCountItTask} remains slower than \texttt{quickCountIt} even for large inputs. This can be due to how much it slows down on small inputs, with near $200ns/element$ for inputs of size $10^3$. Based on the Figure \ref{fig:compTask} it seems that it will not be able to catch up to the serial implementation no matter the input size.
 
 \subsection{}
-We assume that a single partioning step indicates one entire iteration of the \texttt{do-block} including counting and filtering. To test a single partioning step we temporarily modify \texttt{quickCountItTask} to return after a single iteration. Table \ref{table:constn} depicts the running time per element for inputs of size $10^4$ with a varying number of threads for a single step. Here we see that on smaller input sizes, the overhead of using multiple threads becomes increasingly noticable.
+We assume that a single partitioning step indicates one entire iteration of the \texttt{do-block} including counting and filtering. To test a single partitioning step we temporarily modify \texttt{quickCountItTask} to return after a single iteration. Table \ref{table:constn} depicts the running time per element for inputs of size $10^4$ with a varying number of threads for a single step. Here we see that on smaller input sizes, the overhead of using multiple threads becomes increasingly noticeable.
 
 \begin{table}[ht!]
 \centering
@@ -345,7 +345,7 @@ From my tests, calling the above defined \texttt{deadlock} method with parameter
 
 \begin{lstlisting}
 UnionFindTest test = new UnionFindTest();
-test.deadlock(itemCount, new BogusFineUnionFind(itemCount));
+test.deadlock(itemCount, new BogusFineUnionFind(10_000));
 \end{lstlisting}
 
 By merely adding a check to the given \texttt{union()} method in class \texttt{BogusFineUnionFind} to ensure we always lock the lowest entry of the \texttt{nodes} array first, the deadlock test
@@ -517,7 +517,7 @@ public static void testOrder(int n, MyStack<Integer> stack){
 This behaviour was untested in \texttt{concurrentTest}, so a separate straight forward test to clear this up was needed.
 
 \subsection{}\label{sec:striping}
-Below is shown an implentation using striping, with a total of 32 stripes. To determine the stripe use \texttt{Thread.currentThread()hashCode()\%STRIPES)}
+Below is shown an implementation using striping, with a total of 32 stripes. To determine the stripe use \texttt{Thread.currentThread()hashCode()\%STRIPES)}
 as shown on line 16 and 24. We use an \texttt{ArrayList} to store our \texttt{LinkedList}s since we cannot create arrays of 
 parameterized types\footnote{https://docs.oracle.com/javase/tutorial/java/generics/restrictions.html\#createArrays}.
 
@@ -613,11 +613,11 @@ Using synchronization on some lock, in this case on \texttt{this}, has a problem
 the whole system will halt as they wait to retrieve the lock. As such, this implementation is not fault tolerant.
 
 \subsection{}
-Firstly, assuming that we're talking Java, this would fail to typecheck, as we're returning an \texttt{AtomicInteger} from a method that supposedly returns an \texttt{int} and there is no implicit conversion from \texttt{AtomicInteger} to \texttt{int}. Even with this fixed, it would still fail, since two threads may enter the while loop before state changes, causing one of them to be stuck in the loop forever, since \texttt{state.compareAndSet(-1,x)} will then be returning false over and over. This will work if only one thread ever gets to enter the while loop and successfully \texttt{compareAndSet}s the \texttt{state}, since all other threads then merely get the value of the state, leading to consensus.
+Firstly, assuming that we're talking Java, this would fail to type-check, as we're returning an \texttt{AtomicInteger} from a method that supposedly returns an \texttt{int} and there is no implicit conversion from \texttt{AtomicInteger} to \texttt{int}. Even with this fixed, it would still fail, since two threads may enter the while loop before state changes, causing one of them to be stuck in the loop forever, since \texttt{state.compareAndSet(-1,x)} will then be returning false over and over. This will work if only one thread ever gets to enter the while loop and successfully \texttt{compareAndSet}s the \texttt{state}, since all other threads then merely get the value of the state, leading to consensus.
 
 \section{Question 7}
 \subsection{}
-Implementation found in appendx section \ref{sec:akka}.
+Implementation found in appendix section \ref{sec:akka}.
 
 \subsection{}
 Below is shown the output of three distinct runs of the Secure Communication System with Java+Akka.

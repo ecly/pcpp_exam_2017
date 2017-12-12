@@ -136,7 +136,7 @@ class TestQuickSelect {
             ArrayList<Callable<Void>> counters = new ArrayList<>();
             for(int i=0;i<threadCount;i++) {
                 final int from = i==0 ? 1 : i*step; //skip pivot
-                // for undivisible numbers, just let the last thread take a larger chunk
+                // for indivisible numbers, just let the last thread take a larger chunk
                 final int to = i==threadCount-1 ? inp.length : i*step+step;
                 counters.add(() -> {
                     for(int j= from; j<to; j++)
